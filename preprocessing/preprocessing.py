@@ -3,6 +3,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 from tqdm import tqdm
 import pymupdf
+import multiprocessing
 
 import download
 import extractor
@@ -109,7 +110,18 @@ def process_pdf(idx, verbose=False):
 		return False
 
 
+def parallel_process_pdf(args_list):
+    """
+    A helper function to process the PDFs in parallel.
+    """
+    return process_pdf(idx, verbose=True)
+
+
 if __name__ == "__main__":
 
-	for i in tqdm(range(366765, 366770)):
-		process_pdf(i)
+    args_list = [(i, False) for i in range(1, 5000000)]
+
+    with multiprocessing.Pool(processes=12) as p:
+        tqdm(p.imap(parallel_process_pdf, args_list), total=len(args_list))
+    
+    print("Process completed.")
