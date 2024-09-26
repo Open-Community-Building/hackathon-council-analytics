@@ -13,6 +13,36 @@ nextcloud_user = "TeamAgenda"
 nextcloud_password = "TeamAgenda@2024"
 nextcloud_url = f"https://nc-1578619932403564675.nextcloud-ionos.com/remote.php/dav/files/{nextcloud_user}/{nextcloud_folder}/"
 
+max_storage_size_gb = 500
+
+
+def get_folder_size(verbose=False):
+    """
+    Get the size of the Nextcloud folder in bytes using the WebDAV API.
+    """
+    response = requests.request(
+        'PROPFIND', 
+        nextcloud_url + nextcloud_folder + '/',
+        auth=HTTPBasicAuth(nextcloud_user, nextcloud_password),
+        headers={"Depth": "1"}
+    )
+
+    if response.status_code == 207:
+        total_size = 0
+        for line in response.text.splitlines():
+            if "getcontentlength" in line:
+                size_str = line.split('>')[1].split('<')[0]
+                total_size += int(size_str)
+        
+        if verbose:
+            print(f"Current folder size: {total_size / (1024 ** 3):.2f} GB")
+        
+        return total_size
+    else:
+        if verbose:
+            print(f"Failed to get folder size. Status code: {response.status_code}")
+        return None
+
 
 def upload_to_nextcloud(filename, content, content_type="binary", verbose=False):
 	"""
@@ -46,6 +76,12 @@ def process_pdf(idx, verbose=False):
 	"""
 	Process the PDF by downloading, uploading to Nextcloud, extracting text, and uploading the text file to Nextcloud.
 	"""
+
+	folder_size = get_folder_size(verbose=verbose)
+	if folder_size is not None and folder_size >= max_storage_size_gb * (1024 ** 3):
+		print("Maximum folder size reached. Stopping the upload process.")
+		return False
+
 
 	pdf_content = download.request_pdf(idx)  # Request the PDF file
 
