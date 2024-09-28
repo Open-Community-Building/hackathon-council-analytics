@@ -122,6 +122,6 @@ if __name__ == "__main__":
     args_list = [(i, False) for i in range(1, 5000000)]
 
     with multiprocessing.Pool(processes=12) as p:
-        tqdm(p.imap(parallel_process_pdf, args_list), total=len(args_list))
+        results = list(tqdm(p.imap(parallel_process_pdf, args_list), total=len(args_list)))
     
     print("Process completed.")
