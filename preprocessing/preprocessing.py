@@ -110,18 +110,22 @@ def process_pdf(idx, verbose=False):
 		return False
 
 
-def parallel_process_pdf(args_list):
-    """
-    A helper function to process the PDFs in parallel.
-    """
-    return process_pdf(idx, verbose=True)
+def parallel_process_pdf(args):
+	"""
+	A helper function to process the PDFs in parallel.
+	"""
+	idx, verbose = args
+	try:
+		return process_pdf(idx, verbose=verbose)
+	except Exception as e:
+		print(f"An error occured while processing {idx}: {e}")
 
 
 if __name__ == "__main__":
 
-    args_list = [(i, False) for i in range(1, 5000000)]
+    args_list = [(i, False) for i in range(200000, 500000)]
 
-    with multiprocessing.Pool(processes=12) as p:
-        tqdm(p.imap(parallel_process_pdf, args_list), total=len(args_list))
+    with multiprocessing.Pool(processes=28) as p:
+        results = list(tqdm(p.imap(parallel_process_pdf, args_list), total=len(args_list)))
     
     print("Process completed.")
