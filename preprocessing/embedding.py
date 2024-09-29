@@ -9,7 +9,7 @@ from llama_index.core import Settings
 import os
 from tqdm import tqdm
 
-from preprocessing import download_from_nextcloud
+from preprocessing import upload_to_nextcloud, download_from_nextcloud
 
 
 def load_txt_files(start_idx, end_idx):
@@ -69,14 +69,28 @@ def add_documents_to_stores(documents, llama_index, faiss_store):
 def save_index(llama_index, faiss_store):
 	# Save LlamaIndex
     filename = "llama_index.pkl"
+    upload_to_nextcloud("CouncilEmbeddings", filename, pickle.dumps(llama_index))
     with open(filename, 'wb') as f:
         pickle.dump(llama_index, f)  # Save any additional metadata if needed
     print(f"LlamaIndex metadata saved to {filename}.")
-
+    
+    # with open(filename, 'rb') as f:
+    #     llama_index_content = f.read()
+    #     upload_to_nextcloud("llama_index_filename", filename, llama_index_content, content_type="binary")
+    # print(f"LlamaIndex metadata uploaded to Nextcloud at {nextcloud_folder}/{llama_index_filename}.")
+    
 	# Save FAISS index
     filename = "faiss_index"
     faiss_store.save_local(filename)
     print(f"FAISS index saved successfully as {filename}.")
+
+    faiss_files = ["index.faiss", "index.pkl"]
+    for faiss_file in faiss_files:
+        local_path = os.path.join(filename, faiss_file)
+        with open(local_path, 'rb') as f:
+            faiss_content = f.read()
+            upload_to_nextcloud("CouncilEmbeddings", filename, faiss_content, content_type="binary")
+        print(f"Uploaded {faiss_file} to Nextcloud at CouncilEmbeddings/{faiss_file}.")
 
 
 if __name__ == "__main__":
