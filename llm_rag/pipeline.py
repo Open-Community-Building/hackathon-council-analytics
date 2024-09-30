@@ -1,9 +1,14 @@
 import pickle
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from llama_index.core import VectorStoreIndex
-
+import faiss
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.docstore import InMemoryDocstore
+from langchain_community.vectorstores import FAISS
+from llama_index.core import Settings
+from llama_index.core import VectorStoreIndex, StorageContext
+from llama_index.core.storage.index_store import SimpleIndexStore
 from huggingface_hub import login
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
 def load_llama_model(model_name, token):
@@ -13,33 +18,36 @@ def load_llama_model(model_name, token):
     return tokenizer, model
 
 
-def load_precomputed_faiss(faiss_index_path, docstore_path):
-    # Load FAISS index from file
-    faiss_index = faiss.read_index(faiss_index_path)
-    
-    # Load the document store (document metadata)
-    with open(docstore_path, 'rb') as f:
-        docstore_data = pickle.load(f)
-    
-    docstore = InMemoryDocstore(docstore_data)
-    index_to_docstore_id = {i: i for i in range(len(docstore_data))}
-    
-    faiss_store = FAISS(
-        embedding_function=None,
-        index=faiss_index,
-        docstore=docstore,
-        index_to_docstore_id=index_to_docstore_id
-    )
-    
+def load_faiss_index(faiss_index_path="faiss_index", embedding_model_name="sentence-transformers/all-MiniLM-L6-v2"):
+    # Load FAISS store from the saved directory with the embedding model used for indexing
+    embedding_model = HuggingFaceEmbeddings(model_name=embedding_model_name)
+
+    faiss_store = FAISS.load_local(faiss_index_path, embeddings=embedding_model, allow_dangerous_deserialization=True)
+    print(f"FAISS store loaded from {faiss_index_path}.")
     return faiss_store
 
 
-def initialize_llama_index(faiss_store):
-    storage_context = StorageContext.from_vector_store(faiss_store)
-    index = VectorStoreIndex([], storage_context=storage_context)
-    return index
+def load_llama_index(faiss_store):
+    docstore = InMemoryDocstore({})
+    index_store = SimpleIndexStore()
+    vector_stores = {"default_namespace": faiss_store}  # The FAISS store with a namespace
+    
+    # Initialize StorageContext with docstore, index_store, and vector_stores
+    storage_context = StorageContext(
+        docstore=docstore,
+        index_store=index_store,
+        vector_stores=vector_stores,
+        graph_store=None  # Optional
+    )
+    print("StorageContext initialized.")
 
+    Settings.embed_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    llama_index = VectorStoreIndex([], storage_context=storage_context)
+    print("LlamaIndex initialized.")
+    
+    return llama_index
 
+    
 def huggingface_login():
     token = "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"
     # token = os.getenv("HUGGINGFACE_TOKEN")  # Use environment variable for security
@@ -67,13 +75,12 @@ def query_rag_system(query, llama_index, model, tokenizer):
 
 if __name__ == "__main__":
     token = "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"
-    model_name = "meta-llama/Llama-3.1-8B"  # Use Llama 2 if Llama 3 is unavailable
-    tokenizer, model = load_llama_model(model_name, token)
+    model_name = "meta-llama/Llama-3.1-8B"
+    # tokenizer, model = load_llama_model(model_name, token)
     
-    faiss_store = load_precomputed_faiss(faiss_index_path="../preprocessing/faiss_index", docstore_path="../preprocessing/faiss_index/faiss_store.pkl")
-    
-    # Initialize LlamaIndex with the loaded FAISS store
-    llama_index = initialize_llama_index(faiss_store)
+    faiss_path = "../preprocessing/faiss_index"
+    faiss_store = load_faiss_index(faiss_index_path=faiss_path)
+    llama_index = load_llama_index(faiss_store)
 
     # Example query
     query = "What was approved in the council meeting?"
