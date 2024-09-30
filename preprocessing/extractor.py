@@ -17,7 +17,7 @@ def save_text(text: str, fout: str):
 
 
 if __name__ == "__main__":
-	folder = "../data"
+	folder = "../CouncilDocuments"
 	files = [os.path.join(folder, f) for f in os.listdir(folder) if f.endswith(".pdf")]
 
 	for fin in tqdm(files):
