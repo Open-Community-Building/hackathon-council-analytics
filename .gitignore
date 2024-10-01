@@ -4,5 +4,6 @@
 CouncilDocuments/
 CouncilEmbeddings/
 */*.pkl
+*/*.json
 
 scrapy/
