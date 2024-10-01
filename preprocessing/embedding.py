@@ -1,6 +1,6 @@
 import pickle
 import faiss
-from llama_index.core import VectorStoreIndex
+from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Document
@@ -14,7 +14,7 @@ from preprocessing import upload_to_nextcloud, download_from_nextcloud
 
 def load_txt_files(directory):
     documents = []
-    for filename in tqdm(os.listdir(directory)[:20], desc="Loading documents", unit="docs"):
+    for filename in tqdm(os.listdir(directory), desc="Loading documents", unit="docs"):
         if filename.endswith(".txt"):
             filepath = os.path.join(directory, filename)
             with open(filepath, "r", encoding="utf-8") as file:
@@ -54,11 +54,17 @@ def initialize_embedding_model():
 
 
 if __name__ == "__main__":
-    
+
     embedding_model = initialize_embedding_model()
     vector_store = initVectorStore(embedding_model)
-    
+    storage_context = StorageContext.from_defaults(vector_store=vector_store)
     # documents = load_txt_files_from_nextcloud(start_idx=200010, end_idx=200020)
     documents = load_txt_files(directory="../CouncilDocuments")
-    index = VectorStoreIndex.from_documents(documents, vector_store=vector_store, embed_model=embedding_model, show_progress=True) # load documents into the index using the vector store
-    index.storage_context.persist(persist_dir="vectorstore_index") # save the index
+    index = VectorStoreIndex.from_documents(documents, storage_context=storage_context, embed_model=embedding_model, show_progress=True) # load documents into the index using the vector store
+    
+    storage_dir = "vectorstore_index"
+    faiss.write_index(vector_store._faiss_index, os.path.join(storage_dir, "faiss_index.idx"))
+    index.storage_context.persist(persist_dir=storage_dir) # save the index
+
+    print(f"Vectors in FAISS index: {vector_store._faiss_index.ntotal}")
+    print(f"Documents in Vector Store Index: {len(index.ref_doc_info)}")

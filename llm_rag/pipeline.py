@@ -1,31 +1,15 @@
-import pickle
 import torch
 import faiss
 from llama_index.core import Settings, load_index_from_storage
 from llama_index.core import ServiceContext, StorageContext
+from llama_index.core import PromptTemplate
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.llms.huggingface import HuggingFaceLLM
 from huggingface_hub import login
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-import torch
-from llama_index.llms.huggingface import HuggingFaceLLM
-from llama_index.core import PromptTemplate
 
-
-def load_llama_model(model_name, token):
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=token)
-    model = AutoModelForCausalLM.from_pretrained(model_name, token=token)
-    model.eval()
-    return tokenizer, model
-
-def initialize_embedding_model():
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-    embedding_model = HuggingFaceEmbedding(model_name=model_name)
-    print(f"Embedding model {model_name} initialized.")
-    return embedding_model
-
-    
 def huggingface_login():
     token = "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"
     # token = os.getenv("HUGGINGFACE_TOKEN")  # Use environment variable for security
@@ -35,6 +19,41 @@ def huggingface_login():
     print("Logged in successfully!")
 
 
+def init_llm_model(llm_name, token):
+    tokenizer = AutoTokenizer.from_pretrained(llm_name, token=token)
+    stopping_ids = [
+        tokenizer.eos_token_id,
+        tokenizer.convert_tokens_to_ids("<|eot_id|>"),
+    ]
+
+    model = HuggingFaceLLM(
+        model_name=llm_name,
+        model_kwargs={
+            "token": token,
+            "torch_dtype": torch.bfloat16,  # comment this line and uncomment below to use 4bit
+            # "quantization_config": quantization_config
+        },
+        device_map="cuda",
+        generate_kwargs={
+            "do_sample": True,
+            "temperature": 0.6,
+            "top_p": 0.9,
+        },
+        tokenizer_name=llm_name,
+        tokenizer_kwargs={"token": token},
+
+        stopping_ids=stopping_ids,
+    )
+
+    return tokenizer, model
+
+
+def init_embedding_model(embed_name):
+    embedding_model = HuggingFaceEmbedding(model_name=embed_name)
+    print(f"Embedding model {embed_name} initialized.")
+    return embedding_model
+
+    
 def query_rag_system(query, llama_index, model, tokenizer):
     # Retrieve relevant documents using LlamaIndex
     docs = llama_index.query(query, top_k=3)
@@ -52,44 +71,38 @@ def query_rag_system(query, llama_index, model, tokenizer):
 
 
 if __name__ == "__main__":
-    # token = "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"
+
+    token = "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"
     huggingface_login()
-    model_name = "meta-llama/Llama-3.1-8B"
-    embed_model = initialize_embedding_model()
+    embed_name="sentence-transformers/all-MiniLM-L6-v2"
+    llm_name = "meta-llama/Meta-Llama-3.1-8B"
+    # llm_name = "Intel/dynamic_tinybert"
+    embed_model = init_embedding_model(embed_name)
 
-    SYSTEM_PROMPT = """You are an AI assistant that answers questions in a friendly manner, based on the given source documents. Here are some rules you always follow:
-    - Generate human readable output, avoid creating output with gibberish text.
-    - Generate only the requested output, don't include any other language before or after the requested output.
-    - Never say thank you, that you are happy to help, that you are an AI agent, etc. Just answer directly.
-    - Generate professional language typically used in business documents in North America.
-    - Never generate offensive or foul language.
-    """
+    # SYSTEM_PROMPT = """You are an AI assistant that answers questions in a friendly manner, based on the given source documents. Here are some rules you always follow:
+    # - Generate human readable output, avoid creating output with gibberish text.
+    # - Generate only the requested output, don't include any other language before or after the requested output.
+    # - Never say thank you, that you are happy to help, that you are an AI agent, etc. Just answer directly.
+    # - Generate professional language typically used in business documents in North America.
+    # - Never generate offensive or foul language.
+    # """
 
-    query_wrapper_prompt = PromptTemplate(
-        "[INST]<>\n" + SYSTEM_PROMPT + "<>\n\n{query_str}[/INST] "
-    )
+    # query_wrapper_prompt = PromptTemplate(
+    #     "[INST]<>\n" + SYSTEM_PROMPT + "<>\n\n{query_str}[/INST] "
+    # )
 
-    llm_model = HuggingFaceLLM(
-        context_window=4096,
-        max_new_tokens=2048,
-        generate_kwargs={"temperature": 0.0, "do_sample": False},
-        query_wrapper_prompt=query_wrapper_prompt,
-        tokenizer_name=model_name,
-        model_name=model_name,
-        device_map="auto",
-        # change these settings below depending on your GPU
-        # model_kwargs={"torch_dtype": torch.float16, "load_in_8bit": True},
-    )
+    tokenizer, llm_model = init_llm_model(llm_name=llm_name, token=token)
 
     Settings.llm = llm_model
     Settings.embed_model = embed_model
-    # faiss_path = "faiss_vectorstore_index.json"
-    # faiss_store = load_faiss_index(faiss_index_path=faiss_path)
 
-    # vector_store = FaissVectorStore.from_persist_dir("../preprocessing/vectorstore_index")
-    storage_context = StorageContext.from_defaults(persist_dir="../preprocessing/vectorstore_index")
-    # service_context = ServiceContext.from_defaults(embed_model=embed_model, llm=llm_model)
+    faiss_index = faiss.read_index("../preprocessing/vectorstore_index/faiss_index.idx")
+    faiss_store = FaissVectorStore(faiss_index=faiss_index)
+    storage_context = StorageContext.from_defaults(vector_store=faiss_store, persist_dir="../preprocessing/vectorstore_index")
     index = load_index_from_storage(storage_context)
+
+    print(f"Number of vectors stored: {faiss_index.ntotal}")
+    print(f"Number of nodes in index: {len(index.ref_doc_info)}")
 
     # Example query
     # query = "What was approved in the council meeting?"
@@ -100,4 +113,7 @@ if __name__ == "__main__":
     query_engine = index.as_query_engine()
     query = "What was approved in the council meeting?"
     response = query_engine.query(query)
+    print("=================")
+    print(query)
+    print("---------------")
     print(response)
