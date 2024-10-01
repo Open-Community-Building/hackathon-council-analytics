@@ -1,108 +1,64 @@
 import pickle
 import faiss
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.docstore import InMemoryDocstore
-from langchain_community.vectorstores import FAISS
 from llama_index.core import VectorStoreIndex
-from llama_index.core import Document as LlamaDocument
+from llama_index.vector_stores.faiss import FaissVectorStore
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core import Document
 from llama_index.core import Settings
 import os
 from tqdm import tqdm
+import multiprocessing
 
 from preprocessing import upload_to_nextcloud, download_from_nextcloud
 
 
-def load_txt_files(start_idx, end_idx):
+def load_txt_files(directory):
+    documents = []
+    for filename in tqdm(os.listdir(directory)[:20], desc="Loading documents", unit="docs"):
+        if filename.endswith(".txt"):
+            filepath = os.path.join(directory, filename)
+            with open(filepath, "r", encoding="utf-8") as file:
+                content = file.read()
+                doc = Document(text=content, metadata={"filename": filename})
+                documents.append(doc)
+    return documents
+
+
+def load_txt_files_nextcloud(start_idx, end_idx):
     documents = []
     for idx in tqdm(range(start_idx, end_idx + 1), desc="Loading documents", unit="docs"):
         filename = f"{idx}.txt"
         content = download_from_nextcloud("CouncilDocuments", filename)
         if content:
-            # Convert to LlamaIndex Document format
-            documents.append(LlamaDocument(text=content, metadata={"name": filename}))
+            documents.append(Document(text=content, metadata={"filename": filename}))
         else:
             print(f"Skipping {filename} due to download error.")
     return documents
 
 
-def initialize_faiss_store(embedding_model):
-    # Get embedding dimensions
-    test_embedding = embedding_model.embed_query("test")
-    embedding_dim = len(test_embedding)
-    
-    # Initialize FAISS index
+def initVectorStore(embedding_model):
+
+    test_embedding = embedding_model.get_text_embedding("test")
+    embedding_dim = len(test_embedding) # 384
     faiss_index = faiss.IndexFlatL2(embedding_dim)
-    print(f"FAISS index initialized with embedding dimension: {embedding_dim}")
-    
-    # Initialize document store and FAISS store
-    docstore = InMemoryDocstore({})
-    index_to_docstore_id = {}
-    faiss_store = FAISS(embedding_function=embedding_model.embed_query, 
-                        index=faiss_index, 
-                        docstore=docstore, 
-                        index_to_docstore_id=index_to_docstore_id)
-    print("FAISS store initialized.")
-    
+    faiss_store = FaissVectorStore(faiss_index=faiss_index) # initialize vector store
+
     return faiss_store
 
 
 def initialize_embedding_model():
-    embedding_model = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    print("Embedding model initialized.")
+    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    embedding_model = HuggingFaceEmbedding(model_name=model_name)
+    print("Embedding model'sentence-transformers/all-MiniLM-L6-v2' initialized.")
     return embedding_model
-
-
-def initialize_llama_index(embedding_model):
-    Settings.embed_model = embedding_model
-    index = VectorStoreIndex([])
-    print("LlamaIndex initialized.")
-    return index
-
-
-def add_documents_to_stores(documents, llama_index, faiss_store):
-    for doc in tqdm(documents, desc="Embedding documents", unit="docs"):
-        llama_index.insert(doc)  # Add to LlamaIndex
-        faiss_store.add_texts([doc.text], metadatas=[doc.metadata])  # Add documents to FAISS for retrieval
-    print(f"Added {len(documents)} documents to LlamaIndex and FAISS.")
-
-
-def save_index(llama_index, faiss_store):
-	# Save LlamaIndex
-    filename = "llama_index.pkl"
-    upload_to_nextcloud("CouncilEmbeddings", filename, pickle.dumps(llama_index))
-    with open(filename, 'wb') as f:
-        pickle.dump(llama_index, f)  # Save any additional metadata if needed
-    print(f"LlamaIndex metadata saved to {filename}.")
-    
-    # with open(filename, 'rb') as f:
-    #     llama_index_content = f.read()
-    #     upload_to_nextcloud("llama_index_filename", filename, llama_index_content, content_type="binary")
-    # print(f"LlamaIndex metadata uploaded to Nextcloud at {nextcloud_folder}/{llama_index_filename}.")
-    
-	# Save FAISS index
-    filename = "faiss_index"
-    faiss_store.save_local(filename)
-    print(f"FAISS index saved successfully as {filename}.")
-
-    faiss_files = ["index.faiss", "index.pkl"]
-    for faiss_file in faiss_files:
-        local_path = os.path.join(filename, faiss_file)
-        with open(local_path, 'rb') as f:
-            faiss_content = f.read()
-            upload_to_nextcloud("CouncilEmbeddings", filename, faiss_content, content_type="binary")
-        print(f"Uploaded {faiss_file} to Nextcloud at CouncilEmbeddings/{faiss_file}.")
 
 
 if __name__ == "__main__":
     
     embedding_model = initialize_embedding_model()
-    faiss_store = initialize_faiss_store(embedding_model)
-    llama_index = initialize_llama_index(embedding_model)
+    vector_store = initVectorStore(embedding_model)
     
-    documents = load_txt_files(start_idx=200010, end_idx=200020)
-    
-    if documents:
-        add_documents_to_stores(documents, llama_index, faiss_store)
-        save_index(llama_index, faiss_store)
-    else:
-        print("No documents loaded for embedding.")
+    # documents = load_txt_files_from_nextcloud(start_idx=200010, end_idx=200020)
+    documents = load_txt_files(directory="../CouncilDocuments")
+    index = VectorStoreIndex.from_documents(documents, vector_store=vector_store, embed_model=embedding_model, show_progress=True) # load documents into the index using the vector store
+    index.storage_context.persist(persist_dir="vectorstore_index") # save the index
