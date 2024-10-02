@@ -4,6 +4,7 @@ import faiss
 from llama_index.core import Settings, load_index_from_storage
 from llama_index.core import ServiceContext, StorageContext
 from llama_index.core import PromptTemplate
+from llama_index.core.prompts import QueryWrapperPrompt
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.huggingface import HuggingFaceLLM
@@ -111,10 +112,13 @@ if __name__ == "__main__":
     # answer = query_rag_system(query, llama_index, model, tokenizer)
     # print(f"Answer: {answer}")
 
-    # set Logging to DEBUG for more detailed outputs
-    query_engine = index.as_query_engine()
+    german_prompt = QueryWrapperPrompt(
+        template="Lies die folgenden Informationen sorgfältig und beantworte die folgende Frage basierend auf meinen Dokumenten auf Deutsch: {query}"
+    )
+    query_engine = index.as_query_engine(query_wrapper_prompt=german_prompt)
 
-    query = "Welche Themen wurden in der letzten Sitzung des Gemeinderats besprochen?"
+
+    query = "Welche Themen wurden in der letzten Sitzung des Gemeinderates besprochen?"
     response = query_engine.query(query)
     print("\n=================")
     print(query)
