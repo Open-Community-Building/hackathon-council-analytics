@@ -47,7 +47,7 @@ def initVectorStore(embedding_model):
 
 
 def initialize_embedding_model():
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
+    model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_model = HuggingFaceEmbedding(model_name=model_name)
     print("Embedding model'sentence-transformers/all-MiniLM-L6-v2' initialized.")
     return embedding_model

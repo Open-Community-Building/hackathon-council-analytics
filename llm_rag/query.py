@@ -75,7 +75,7 @@ if __name__ == "__main__":
 
     token = "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"
     huggingface_login()
-    embed_name="sentence-transformers/all-MiniLM-L6-v2"
+    embed_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     llm_name = "meta-llama/Meta-Llama-3.1-8B"
     index_dir = "../CouncilEmbeddings/vectorstore_index"
     # llm_name = "Intel/dynamic_tinybert"
