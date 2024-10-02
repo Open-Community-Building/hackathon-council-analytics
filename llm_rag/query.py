@@ -55,14 +55,14 @@ def init_embedding_model(embed_name):
     return embedding_model
 
     
-def query_rag_system(query, llama_index, model, tokenizer):
-    # Retrieve relevant documents using LlamaIndex
-    docs = llama_index.query(query, top_k=3)
+def query_response(query, index, model, tokenizer):
+    query_engine = index.as_query_engine()
+    response = query_engine.query(query, top_k=5)
+
+    documents = [doc.text for doc in response.source_nodes]
+    context = "\n".join(documents)
     
-    # Concatenate retrieved documents and pass them to the Llama model for answer generation
-    context = "\n".join([doc.page_content for doc in docs])
-    input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
-    
+    input_text = f"Frage:\n{query}\n\nKontext: {query}\nAntwort:"
     inputs = tokenizer(input_text, return_tensors="pt")
     with torch.no_grad():  # No gradients needed for inference
         outputs = model.generate(**inputs, max_new_tokens=150)
@@ -81,21 +81,10 @@ if __name__ == "__main__":
     # llm_name = "Intel/dynamic_tinybert"
     embed_model = init_embedding_model(embed_name)
 
-    # SYSTEM_PROMPT = """You are an AI assistant that answers questions in a friendly manner, based on the given source documents. Here are some rules you always follow:
-    # - Generate human readable output, avoid creating output with gibberish text.
-    # - Generate only the requested output, don't include any other language before or after the requested output.
-    # - Never say thank you, that you are happy to help, that you are an AI agent, etc. Just answer directly.
-    # - Generate professional language typically used in business documents in North America.
-    # - Never generate offensive or foul language.
-    # """
-
-    # query_wrapper_prompt = PromptTemplate(
-    #     "[INST]<>\n" + SYSTEM_PROMPT + "<>\n\n{query_str}[/INST] "
-    # )
-
     tokenizer, llm_model = init_llm_model(llm_name=llm_name, token=token)
 
     Settings.llm = llm_model
+    Settings.tokenizer = tokenizer
     Settings.embed_model = embed_model
 
     faiss_index = faiss.read_index(os.path.join(index_dir, "faiss_index.idx"))
@@ -106,16 +95,13 @@ if __name__ == "__main__":
     print(f"Number of vectors stored: {faiss_index.ntotal}")
     print(f"Number of nodes in index: {len(index.ref_doc_info)}")
 
-    # Example query
-    # query = "What was approved in the council meeting?"
-    # answer = query_rag_system(query, llama_index, model, tokenizer)
-    # print(f"Answer: {answer}")
-
     # set Logging to DEBUG for more detailed outputs
-    query_engine = index.as_query_engine()
 
     query = "Welche Themen wurden in der letzten Sitzung des Gemeinderats besprochen?"
-    response = query_engine.query(query)
+    response = query_response(query, index)
+
+
+
     print("\n=================")
     print(query)
     print("---------------")
