@@ -1,3 +1,4 @@
+import os
 import torch
 import faiss
 from llama_index.core import Settings, load_index_from_storage
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     huggingface_login()
     embed_name="sentence-transformers/all-MiniLM-L6-v2"
     llm_name = "meta-llama/Meta-Llama-3.1-8B"
+    index_dir = "../CouncilEmbeddings/vectorstore_index"
     # llm_name = "Intel/dynamic_tinybert"
     embed_model = init_embedding_model(embed_name)
 
@@ -96,9 +98,9 @@ if __name__ == "__main__":
     Settings.llm = llm_model
     Settings.embed_model = embed_model
 
-    faiss_index = faiss.read_index("../preprocessing/vectorstore_index/faiss_index.idx")
+    faiss_index = faiss.read_index(os.path.join(index_dir, "faiss_index.idx"))
     faiss_store = FaissVectorStore(faiss_index=faiss_index)
-    storage_context = StorageContext.from_defaults(vector_store=faiss_store, persist_dir="../preprocessing/vectorstore_index")
+    storage_context = StorageContext.from_defaults(vector_store=faiss_store, persist_dir=index_dir)
     index = load_index_from_storage(storage_context)
 
     print(f"Number of vectors stored: {faiss_index.ntotal}")
@@ -111,9 +113,10 @@ if __name__ == "__main__":
 
     # set Logging to DEBUG for more detailed outputs
     query_engine = index.as_query_engine()
-    query = "What was approved in the council meeting?"
+
+    query = "Welche Themen wurden in der letzten Sitzung des Gemeinderats besprochen?"
     response = query_engine.query(query)
-    print("=================")
+    print("\n=================")
     print(query)
     print("---------------")
     print(response)
