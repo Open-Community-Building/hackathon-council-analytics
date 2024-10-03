@@ -2,14 +2,13 @@ import os
 import torch
 import faiss
 from llama_index.core import Settings, load_index_from_storage
-from llama_index.core import ServiceContext, StorageContext
+from llama_index.core import StorageContext
 from llama_index.core import PromptTemplate
-from llama_index.core.prompts import QueryWrapperPrompt
 from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.huggingface import HuggingFaceLLM
 from huggingface_hub import login
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer
 
 
 def huggingface_login():
@@ -28,6 +27,10 @@ def init_llm_model(llm_name, token):
         tokenizer.convert_tokens_to_ids("<|eot_id|>"),
     ]
 
+    system_prompt = """Du bist ein intelligentes System, das deutsche Dokumente durchsucht und auf Basis der enthaltenen Informationen präzise Antworten auf gestellte Fragen gibt. Wenn du eine Antwort formulierst, gib die Antwort in klaren und präzisen Sätzen an und nenne dabei mindestens eine oder mehrere relevante Quellen. Jede Quelle sollte als Dokumentname und ggf. mit Abschnitts- oder Seitenangabe zitiert werden. 1. Durchsuche die dir vorliegenden Dokumente sorgfältig. 2. Fasse die relevante Information zur Beantwortung der Frage zusammen. 3. Gib die Antwort in präzisem Deutsch wieder. 4. Zitiere die verwendeten Quellen am Ende der Antwort im Format: (Quelle: Dokumentname, Abschnitt/Seite)."""
+    # This will wrap the default prompts that are internal to llama-index
+    query_wrapper_prompt = PromptTemplate("<|USER|>{query_str}<|ASSISTANT|>")
+
     model = HuggingFaceLLM(
         model_name=llm_name,
         model_kwargs={
@@ -41,9 +44,10 @@ def init_llm_model(llm_name, token):
             "temperature": 0.6,
             "top_p": 0.9,
         },
+        system_prompt=system_prompt,
+        query_wrapper_prompt=query_wrapper_prompt,
         tokenizer_name=llm_name,
         tokenizer_kwargs={"token": token},
-
         stopping_ids=stopping_ids,
     )
 
@@ -104,11 +108,7 @@ if __name__ == "__main__":
     # answer = query_rag_system(query, llama_index, model, tokenizer)
     # print(f"Answer: {answer}")
 
-    german_prompt = QueryWrapperPrompt(
-        template="Lies die folgenden Informationen sorgfältig und beantworte die folgende Frage basierend auf meinen Dokumenten auf Deutsch: {query}"
-    )
-    query_engine = index.as_query_engine(query_wrapper_prompt=german_prompt)
-
+    query_engine = index.as_query_engine()
 
     query = "Welche Themen wurden in der letzten Sitzung des Gemeinderates besprochen?"
     response = query_engine.query(query)
