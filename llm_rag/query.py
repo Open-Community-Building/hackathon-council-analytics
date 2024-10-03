@@ -56,14 +56,17 @@ def init_embedding_model(embed_name):
     return embedding_model
 
     
-def query_rag_system(query, llama_index, model, tokenizer):
-    # Retrieve relevant documents using LlamaIndex
-    docs = llama_index.query(query, top_k=3)
+def query_response(query, index):
+    query_engine = index.as_query_engine()
+    response = query_engine.query(query)
+
+    documents = [doc.text for doc in response.source_nodes]
+    context = "\n".join(documents)
     
-    # Concatenate retrieved documents and pass them to the Llama model for answer generation
-    context = "\n".join([doc.page_content for doc in docs])
-    input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+    tokenizer = Settings.tokenizer
+    model = Settings.llm
     
+    input_text = f"Frage:\n{query}\n\nKontext: {query}\nAntwort:"
     inputs = tokenizer(input_text, return_tensors="pt")
     with torch.no_grad():  # No gradients needed for inference
         outputs = model.generate(**inputs, max_new_tokens=150)
@@ -76,27 +79,16 @@ if __name__ == "__main__":
 
     token = "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"
     huggingface_login()
-    embed_name="sentence-transformers/all-MiniLM-L6-v2"
+    embed_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     llm_name = "meta-llama/Meta-Llama-3.1-8B"
-    index_dir = "../CouncilEmbeddings/vectorstore_index"
+    index_dir = "../CouncilEmbeddings/vectorstore_index_chunked"
     # llm_name = "Intel/dynamic_tinybert"
     embed_model = init_embedding_model(embed_name)
-
-    # SYSTEM_PROMPT = """You are an AI assistant that answers questions in a friendly manner, based on the given source documents. Here are some rules you always follow:
-    # - Generate human readable output, avoid creating output with gibberish text.
-    # - Generate only the requested output, don't include any other language before or after the requested output.
-    # - Never say thank you, that you are happy to help, that you are an AI agent, etc. Just answer directly.
-    # - Generate professional language typically used in business documents in North America.
-    # - Never generate offensive or foul language.
-    # """
-
-    # query_wrapper_prompt = PromptTemplate(
-    #     "[INST]<>\n" + SYSTEM_PROMPT + "<>\n\n{query_str}[/INST] "
-    # )
 
     tokenizer, llm_model = init_llm_model(llm_name=llm_name, token=token)
 
     Settings.llm = llm_model
+    Settings.tokenizer = tokenizer
     Settings.embed_model = embed_model
 
     faiss_index = faiss.read_index(os.path.join(index_dir, "faiss_index.idx"))
@@ -120,6 +112,8 @@ if __name__ == "__main__":
 
     query = "Welche Themen wurden in der letzten Sitzung des Gemeinderates besprochen?"
     response = query_engine.query(query)
+
+
     print("\n=================")
     print(query)
     print("---------------")
