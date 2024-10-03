@@ -55,12 +55,15 @@ def init_embedding_model(embed_name):
     return embedding_model
 
     
-def query_response(query, index, model, tokenizer):
+def query_response(query, index):
     query_engine = index.as_query_engine()
-    response = query_engine.query(query, top_k=5)
+    response = query_engine.query(query)
 
     documents = [doc.text for doc in response.source_nodes]
     context = "\n".join(documents)
+    
+    tokenizer = Settings.tokenizer
+    model = Settings.llm
     
     input_text = f"Frage:\n{query}\n\nKontext: {query}\nAntwort:"
     inputs = tokenizer(input_text, return_tensors="pt")
@@ -77,7 +80,7 @@ if __name__ == "__main__":
     huggingface_login()
     embed_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     llm_name = "meta-llama/Meta-Llama-3.1-8B"
-    index_dir = "../CouncilEmbeddings/vectorstore_index"
+    index_dir = "../CouncilEmbeddings/vectorstore_index_chunked"
     # llm_name = "Intel/dynamic_tinybert"
     embed_model = init_embedding_model(embed_name)
 
@@ -98,8 +101,9 @@ if __name__ == "__main__":
     # set Logging to DEBUG for more detailed outputs
 
     query = "Welche Themen wurden in der letzten Sitzung des Gemeinderats besprochen?"
-    response = query_response(query, index)
-
+    # response = query_response(query, index)
+    query_engine = index.as_query_engine()
+    response = query_engine.query(query)
 
 
     print("\n=================")
