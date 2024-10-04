@@ -87,8 +87,8 @@ if __name__ == "__main__":
     # index = VectorStoreIndex.from_documents(documents, storage_context=storage_context, embed_model=embedding_model, show_progress=True) # load documents into the index using the vector store
     
     storage_dir = "vectorstore_index"
-    faiss.write_index(vector_store._faiss_index, os.path.join(storage_dir, "faiss_index.idx"))
     index.storage_context.persist(persist_dir=storage_dir) # save the index
+    faiss.write_index(vector_store._faiss_index, os.path.join(storage_dir, "faiss_index.idx"))
 
     print(f"Vectors in FAISS index: {vector_store._faiss_index.ntotal}")
     print(f"Documents in Vector Store Index: {len(index.ref_doc_info)}")
