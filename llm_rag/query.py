@@ -85,8 +85,8 @@ if __name__ == "__main__":
     huggingface_login()
     embed_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     llm_name = "meta-llama/Meta-Llama-3.1-8B"
-    index_dir = "../CouncilEmbeddings/vectorstore_index_chunked"
-    # llm_name = "Intel/dynamic_tinybert"
+    # index_dir = "../CouncilEmbeddings/vectorstore_index_chunked"
+    index_dir = "../preprocessing/vectorstore_index"
     embed_model = init_embedding_model(embed_name)
 
     tokenizer, llm_model = init_llm_model(llm_name=llm_name, token=token)
