@@ -8,3 +8,5 @@ CouncilEmbeddings/
 
 scrapy/
 env/
+aws/
+dynamodb/

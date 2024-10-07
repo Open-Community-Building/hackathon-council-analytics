@@ -41,7 +41,7 @@ if __name__ == '__main__':
     files = [f.strip('.pdf') for f in os.listdir(folder) if f.endswith('.pdf')]
 
     n = 0
-    for i in tqdm(range(366765, 366770)):
+    for i in tqdm(range(366765, 366955)):
         if str(i) not in files:
             download = download_pdf(i, verbose=True)
             n += 1 if download else 0
