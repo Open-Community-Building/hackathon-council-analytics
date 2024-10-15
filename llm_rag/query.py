@@ -11,7 +11,7 @@ from llama_index.vector_stores.faiss import FaissVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.huggingface import HuggingFaceLLM
 from huggingface_hub import login
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, BitsAndBytesConfig
 
 
 class RAG_LLM:
@@ -22,7 +22,7 @@ class RAG_LLM:
         self.huggingface_login()
 
         self.embed_name = "dunzhang/stella_en_1.5B_v5"
-        self.llm_name = "meta-llama/Meta-Llama-3.1-8B"
+        self.llm_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
         # index_dir = "../CouncilEmbeddings/vectorstore_index_chunked"
         index_dir = "../preprocessing/vectorstore_index"
 
@@ -67,8 +67,7 @@ class RAG_LLM:
             model_kwargs={
                 "token": token,
                 "torch_dtype": torch.bfloat16,  # comment this line and uncomment below to use 4bit
-                "load_in_8bit": True,
-                # "quantization_config": quantization_config
+                "quantization_config": BitsAndBytesConfig(load_in_8bit=True)
             },
             device_map="cuda",
             generate_kwargs={
