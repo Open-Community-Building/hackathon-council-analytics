@@ -7,7 +7,7 @@ workspace "Name" "Description" {
         u2 = person "Admin"
         u3 = person "Gäste"
         u4 = person "Kunden"
-        ss = softwareSystem "Software System" {
+        ss = softwareSystem "Council Insights" {
             wa = container "Web Application"
             db = container "Database Schema" {
                 tags "Database"
@@ -22,12 +22,12 @@ workspace "Name" "Description" {
     }
 
     views {
-        systemContext ss "Diagram1" {
+        systemContext ss "C1_Context" {
             include *
             autolayout lr
         }
 
-        container ss "Diagram2" {
+        container ss "C2_Container" {
             include *
             autolayout lr
         }
