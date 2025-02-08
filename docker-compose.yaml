@@ -1,0 +1,65 @@
+services:
+  chroma:
+    image: chromadb/chroma:0.5.16
+    volumes:
+      - ./chromadb:/chroma/chroma
+    environment:
+      # - IS_PERSISTENT=TRUE
+      # - CHROMA_SERVER_AUTH_PROVIDER=${CHROMA_SERVER_AUTH_PROVIDER:-}
+      # - CHROMA_SERVER_AUTHN_CREDENTIALS_FILE=${CHROMA_SERVER_AUTHN_CREDENTIALS_FILE:-}
+      # - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_SERVER_AUTHN_CREDENTIALS:-}
+      # - CHROMA_AUTH_TOKEN_TRANSPORT_HEADER=${CHROMA_AUTH_TOKEN_TRANSPORT_HEADER:-}
+      # - PERSIST_DIRECTORY=${PERSIST_DIRECTORY:-/chroma/chroma}
+      # - CHROMA_OTEL_EXPORTER_ENDPOINT=${CHROMA_OTEL_EXPORTER_ENDPOINT:-}
+      # - CHROMA_OTEL_EXPORTER_HEADERS=${CHROMA_OTEL_EXPORTER_HEADERS:-}
+      # - CHROMA_OTEL_SERVICE_NAME=${CHROMA_OTEL_SERVICE_NAME:-}
+      # - CHROMA_OTEL_GRANULARITY=${CHROMA_OTEL_GRANULARITY:-}
+      # - CHROMA_SERVER_NOFILE=${CHROMA_SERVER_NOFILE:-}
+      # - ANONYMIZED_TELEMETRY=${ANONYMIZED_TELEMETRY:-FALSE}
+      - CHROMA_SERVER_CORS_ALLOW_ORIGINS=["*"]
+    command: "--workers 4 --host 0.0.0.0 --port 8000 --proxy-headers --log-config chromadb/log_config.yml --timeout-keep-alive 30"
+    ports:
+      - 8000:8000
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+  llm:
+    image: ollama/ollama:latest
+    volumes:
+      - ./models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+
+  embedding:
+    image: ollama/ollama:latest
+    volumes:
+      - ./models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['0']
+              capabilities: [gpu]
+  
+  web_app:
+    build:
+      context: .
+      dockerfile: Dockerfile.webapp
+    image: localhost/web_app
+    ports:
+      - 8501:8501
+    deploy:
+      resources:
+        reservations:
+          devices:
