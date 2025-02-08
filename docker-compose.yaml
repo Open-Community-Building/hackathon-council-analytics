@@ -49,7 +49,7 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              device_ids: ['0']
+              device_ids: ['1']
               capabilities: [gpu]
   
   web_app:
@@ -59,7 +59,5 @@ services:
     image: localhost/web_app
     ports:
       - 8501:8501
-    deploy:
-      resources:
-        reservations:
-          devices:
+    volumes:
+      - .:/app

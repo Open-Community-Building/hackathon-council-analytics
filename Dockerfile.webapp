@@ -7,14 +7,6 @@ RUN apt-get install -y build-essential
 # Arbeitsverzeichnis im Container setzen
 WORKDIR /app
 
-# Requirements-Datei kopieren und Abhängigkeiten installieren
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Den gesamten Code ins Arbeitsverzeichnis kopieren
-COPY . .
-
 # Port für Streamlit freigeben
 EXPOSE 8501
 
