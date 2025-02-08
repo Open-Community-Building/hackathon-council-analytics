@@ -26,10 +26,46 @@ Heidelberg City Council automatic document processing, analyzing and chatbot.
 ## About
 This project intends to automatically download hundreds of thousand of publicly available documents from Heidelberg City Council's website regularly and transform them by indexation and vectorization before finally run data analytics models against them using NLP and LLM. The purpose is to create a democratic trusted system whereby all stakeholders will be able to search, analyze and get answer to their questions quickly and transparently.
 
+
+## Premilinary docker composer setup
+
+### docker compose
+
+#### setup 
+setup GPUs in docker compose
+
+
+#### docker commands
+start docker compose
+```bash
+docker compose up --build
+```
+
+load requirements in streamlit app
+```bash
+docker exec -it hackathon-council-analytics-web_app-1 pip install --no-cache-dir -r requirements.txt
+```
+
+clean docker compose
+```bash
+docker compose stop; docker compose rm -f; docker compose up -d
+```
+
+
+### TODO:
+- [ ] setup GPUs per .env file
+- [ ] connect chroma db to streamlit app
+- [ ] import data to chroma db
+
+
+
 ## Development
 
 ### Prerequisites
 Before installing required packages/libraries make sure the following prerequisites on your development machine or virtual environment (Recommended) are satisfied. A Python Virtual Environment is an isolated directory with a particular file structure where you can work on your Python projects, separately from your global-installed Python.
+
+
+
 
 There are many variations of virtual env packages/tools, that allows you to create virtual environments such as [Pipenv & Virtual Environments](https://docs.python-guide.org/dev/virtualenvs/), [Managing Environments with Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) but you can start with the [Python docs on Virtual Environments](https://docs.python.org/3/tutorial/venv.html) if you are not familiar or using one yet.
 
