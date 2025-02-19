@@ -1,5 +1,0 @@
-Automatic
-=========
-
-.. autosummary::
-   :toctree: generated

@@ -4,34 +4,34 @@ preprocessing package
 Submodules
 ----------
 
-preprocessing.download module
+src.download module
 -----------------------------
 
-.. automodule:: preprocessing.download
+.. automodule:: src.download
    :members:
    :undoc-members:
    :show-inheritance:
 
-preprocessing.embedding module
+src.embedding module
 ------------------------------
 
-.. automodule:: preprocessing.embedding
+.. automodule:: src.embedding
    :members:
    :undoc-members:
    :show-inheritance:
 
-preprocessing.extractor module
+src.extractor module
 ------------------------------
 
-.. automodule:: preprocessing.extractor
+.. automodule:: src.extractor
    :members:
    :undoc-members:
    :show-inheritance:
 
-preprocessing.preprocessing module
+src.preprocessing module
 ----------------------------------
 
-.. automodule:: preprocessing.preprocessing
+.. automodule:: src.preprocessing
    :members:
    :undoc-members:
    :show-inheritance:

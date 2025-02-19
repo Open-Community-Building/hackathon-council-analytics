@@ -6,14 +6,15 @@
 council_analytics documentation
 ===============================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+.. Add your content using ``reStructuredText`` syntax. See the
+   `reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
+   documentation for details.
 
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+   intro
    llm_rag
    preprocessing

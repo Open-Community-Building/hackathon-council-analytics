@@ -1,21 +1,21 @@
-llm\_rag package
+RAG LLM package
 ================
 
 Submodules
 ----------
 
-llm\_rag.query module
+src.query module
 ---------------------
 
-.. automodule:: llm_rag.query
+.. automodule:: src.query
    :members:
    :undoc-members:
    :show-inheritance:
 
-llm\_rag.web\_app module
+src.web\_app module
 ------------------------
 
-.. automodule:: llm_rag.web_app
+.. automodule:: src.web_app
    :members:
    :undoc-members:
    :show-inheritance:
@@ -23,7 +23,7 @@ llm\_rag.web\_app module
 Module contents
 ---------------
 
-.. automodule:: llm_rag
+.. automodule:: src
    :members:
    :undoc-members:
    :show-inheritance:
