@@ -16,6 +16,7 @@ import tomllib
 
 #Define some defaults
 ll_name    = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+#TODO: refactor this to embedding_model_name
 model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 model_dir  = "model"
 index_dir  = "CouncilEmbeddings"

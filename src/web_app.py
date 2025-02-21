@@ -1,5 +1,4 @@
 import streamlit as st
-import tomllib
 import os
 from query import RAG_LLM
 import tomllib

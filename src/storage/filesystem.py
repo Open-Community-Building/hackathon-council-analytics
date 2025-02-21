@@ -39,6 +39,27 @@ class FileStorage:
             with open(file, readtype) as f:
                 return f.read()
 
+    def load_txt_files(self, start_idx: int, end_idx: int, processed_filenames=None) -> list:
+        """
+        Get Textfiles from Filestorage
+        return a list of documents
+        params:
+        start_idx: start of range or when only parameter get this id
+        end_idx: end of range
+        """
+        documents = []
+        for idx in tqdm(range(start_idx, end_idx + 1), desc="Loading documents", unit="docs"):
+            filename = f"{idx}.txt"
+            if processed_filenames and filename in processed_filenames:
+                continue
+            content = self.fs.get_from_storage(
+                filename)  # TODO: Would it make sense to try a download if the file is not found?
+            if content:
+                documents.append(Document(text=content, metadata={"filename": filename}))
+            else:
+                vprint(f"{filename} not found", self.config)
+        return documents
+
     def load_txt_files(self) -> list:
         """
         load all txt files in path

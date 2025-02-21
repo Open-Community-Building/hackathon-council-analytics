@@ -8,3 +8,9 @@ llama-index-vector-stores-faiss>=0.3.0
 pymupdf>=1.25.1
 pytest>=8.3.4
 streamlit>=1.41.1
+haystack-ai
+qdrant-haystack
+sentence-transformers>=3.0.0
+deepeval-haystack
+lm-format-enforcer
+bitsandbytes
