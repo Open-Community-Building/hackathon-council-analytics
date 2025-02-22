@@ -60,7 +60,16 @@ def preprocess(config: dict, start_id: int, end_id: Optional[int] = None) -> Non
     else:
         for idx in tqdm(range(start_id, end_id + 1), desc="Processing documents", unit="docs"):
              pp.process_pdf(idx)
-        
+
+def update_storage(config: dict, requests: int) -> None:
+    pp = Preprocessor(config)
+    filelist = pp.fs.get_file_list()
+    last_id = basename(sorted(filelist)[:1])
+    start_id = last_id + 1
+    end_id = start_id + requests
+    for idx in tqdm(range(start_id, end_id + 1), desc="Processing documents", unit="docs"):
+         pp.process_pdf(idx)
+              
 
 def embed(config: dict, start_id: int, end_id: Optional[int] = None) -> None:
     vprint('embed got called', config)

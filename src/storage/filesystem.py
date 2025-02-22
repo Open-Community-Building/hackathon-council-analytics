@@ -23,9 +23,9 @@ class FileStorage:
         except KeyError:
             raise Exception("A path configuration is required")
 
-    def get_from_storage(self,filename):
+    def read_from_storage(self,filename):
         """
-        This method retrieves a file from the filesystem
+        This method retrieves a files content from the filesystem
         """
         basename,filetype = os.path.splitext(filename)
         if filetype == '.pdf':
@@ -39,28 +39,39 @@ class FileStorage:
             with open(file, readtype) as f:
                 return f.read()
 
-    def load_txt_files(self, start_idx: int, end_idx: int, processed_filenames=None) -> list:
+    def get_documents(self,start_idx: int, end_idx: int, filelist: list,  exclude_filenames=None) -> list:
         """
         Get Textfiles from Filestorage
         return a list of documents
         params:
-        start_idx: start of range or when only parameter get this id
-        end_idx: end of range
+        - filelist: if given use this, else use all txt files on filesystem
+        - start_idx: start of range
+        - end_idx: end of range, can be None
+        - exclude_filenames: exclude already processed files
+        returns a list of document dicts
         """
         documents = []
-        for idx in tqdm(range(start_idx, end_idx + 1), desc="Loading documents", unit="docs"):
-            filename = f"{idx}.txt"
-            if processed_filenames and filename in processed_filenames:
+        if not filelist and start_idx:
+            if not end_idx:
+                end_idx = start_idx
+            filelist = []
+            for idx in range(start_idx, end_idx + 1):
+                filename = f"{idx}.txt"
+                filelist.append(filename)
+         elif not filelist and not start_idx:
+             filelist = self.get_txt_files
+         for filename in filelist:           
+            if exclude_filenames and filename in exclude_filenames:
                 continue
             content = self.fs.get_from_storage(
                 filename)  # TODO: Would it make sense to try a download if the file is not found?
             if content:
-                documents.append(Document(text=content, metadata={"filename": filename}))
+                documents.append('text': content, "filename": filename})
             else:
                 vprint(f"{filename} not found", self.config)
         return documents
 
-    def load_txt_files(self) -> list:
+    def get_txt_files(self) -> list:
         """
         load all txt files in path
         returns a list of file path

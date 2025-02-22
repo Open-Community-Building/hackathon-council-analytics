@@ -57,11 +57,20 @@ class Embedor:
         )
 
     def embed(self, start_idx: int, end_idx: int) -> None:
-
+        """
+        embedding function
+        to be called by admin.py
+        params:
+        - start_idx
+        - end_idx
+        #ToDo: preprocessed documents, update    
+        """
+        documents = self.fs.get_from_storage(start_idx=start_idx,end_idx=end_idx,filetype='txt')
+        self.embed_and_index_documents(documents)
 
     def embed_and_index_documents(self, documents: list):
         """
-        embedder function to be called by admin.py
+        embedder function
         params:
         - docucuments
         """
