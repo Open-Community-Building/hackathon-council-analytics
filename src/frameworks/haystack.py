@@ -7,6 +7,11 @@ from haystack.components.generators import HuggingFaceAPIGenerator
 from haystack.document_stores.types import DuplicatePolicy
 from haystack.utils import Secret
 from preprocessor import Preprocessor
+from typing import Optional
+
+"""
+refactored from https://github.com/medulka/LLMs/blob/main/RAG_haystack_hanka_mistral.ipynb
+"""
 
 #Defaults
 llm_model_name = "mistralai/Mistral-7B-Instruct-v0.3"
@@ -41,13 +46,15 @@ class Embedor:
         self.pp = Preprocessor(config)
         self.fs = self.pp.fs
         self.verbose = config.get('verbose')
+        self.qdrant_url = 'Qdrant'
+        self.qdrant_api_key = 'https://fab0ca0d-b8e8-420c-b6ca-b59c5a990a16.us-east4-0.gcp.cloud.qdrant.io:6333'
+        self.hf_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwiZXhwIjoxNzQ2NDQwMTk3fQ.KU5q9RdAbwRicjjTGabCCEHrUgUp3F-b7cvxvsm-MYY'
         self.document_store = self._init_document_store()
 
     def _init_document_store(self) -> QdrantDocumentStore:
-        QdrantDocumentStore(
-            url=QDRANT_URL,
-            api_key=Secret.from_token(
-                "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwiZXhwIjoxNzQ2NDQwMTk3fQ.KU5q9RdAbwRicjjTGabCCEHrUgUp3F-b7cvxvsm-MYY"),
+        return QdrantDocumentStore(
+            url=self.qdrant_url,
+            api_key=Secret.from_token(self.hf_token),
             index="Document",
             recreate_index=True,
             return_embedding=True,
@@ -56,7 +63,8 @@ class Embedor:
             embedding_dim=384,
         )
 
-    def embed(self, start_idx: int, end_idx: int) -> None:
+
+    def embed(self,  start_idx: Optional[int] = None, end_idx: Optional[int] = None) -> None:
         """
         embedding function
         to be called by admin.py
@@ -65,8 +73,9 @@ class Embedor:
         - end_idx
         #ToDo: preprocessed documents, update    
         """
-        documents = self.fs.get_from_storage(start_idx=start_idx,end_idx=end_idx,filetype='txt')
-        self.embed_and_index_documents(documents)
+        documents = self.fs.get_documents(start_idx=start_idx,end_idx=end_idx)
+        count = self.embed_and_index_documents(documents)
+        return count
 
     def embed_and_index_documents(self, documents: list):
         """
@@ -76,19 +85,20 @@ class Embedor:
         """
         document_embedder = SentenceTransformersDocumentEmbedder(
             model=embedding_model_name,
-            token=Secret.from_token(HF_TOKEN),
+            token=Secret.from_token(self.hf_token),
         )
         document_embedder.warm_up()
         document_with_embeddings = document_embedder.run(documents)
-        document_store.write_documents(document_with_embeddings.get("documents"), policy=DuplicatePolicy.OVERWRITE)
-        vprint(document_store.count_documents(), config)
+        self.document_store.write_documents(document_with_embeddings.get("documents"), policy=DuplicatePolicy.OVERWRITE)
+        vprint(self.document_store.count_documents(), config)
+        return self.document_store.count_documents()
 
     def run_pipeline(self):
         pipeline_text_embedder = SentenceTransformersTextEmbedder(
             model=embedding_model_name,
-            token=Secret.from_token(HF_TOKEN),
+            token=Secret.from_token(self.hf_token),
         )
-        pipeline_retriever = QdrantEmbeddingRetriever(document_store=document_store)
+        pipeline_retriever = QdrantEmbeddingRetriever(document_store=self.document_store)
 
         pipeline_prompt_builder = PromptBuilder(template=prompt_template)
 

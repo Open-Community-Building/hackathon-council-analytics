@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+from utils import vprint
 """
 This module gets imported by the preprocessor when filestorage is configured as 'filesystem'
 
@@ -22,6 +24,7 @@ class FileStorage:
             self.path = config['filestorage']['path']
         except KeyError:
             raise Exception("A path configuration is required")
+        self.config = config
 
     def read_from_storage(self,filename):
         """
@@ -39,10 +42,14 @@ class FileStorage:
             with open(file, readtype) as f:
                 return f.read()
 
-    def get_documents(self,start_idx: int, end_idx: int, filelist: list,  exclude_filenames=None) -> list:
+    def get_documents(self,
+                      start_idx: Optional[int] = None,
+                      end_idx: Optional[int] = None,
+                      filelist: Optional[list] = None,
+                      exclude_filenames: Optional[list] = None) -> list:
         """
         Get Textfiles from Filestorage
-        return a list of documents
+
         params:
         - filelist: if given use this, else use all txt files on filesystem
         - start_idx: start of range
@@ -58,17 +65,16 @@ class FileStorage:
             for idx in range(start_idx, end_idx + 1):
                 filename = f"{idx}.txt"
                 filelist.append(filename)
-         elif not filelist and not start_idx:
-             filelist = self.get_txt_files
-         for filename in filelist:           
+        elif not filelist and not start_idx:
+            filelist = self.get_txt_files()
+        for filename in filelist:
             if exclude_filenames and filename in exclude_filenames:
                 continue
-            content = self.fs.get_from_storage(
-                filename)  # TODO: Would it make sense to try a download if the file is not found?
+            content = self.read_from_storage(filename)
             if content:
-                documents.append('text': content, "filename": filename})
+                documents.append({'text': content, "filename": filename})
             else:
-                vprint(f"{filename} not found", self.config)
+                vprint(f"{filename} not found or empty", self.config)
         return documents
 
     def get_txt_files(self) -> list:

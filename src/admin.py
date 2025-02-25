@@ -3,10 +3,11 @@ import argparse
 import os
 import tomllib
 import pprint
-from tqdm import tqdm
+from rainbow_tqdm import tqdm
+#from tqdm import tqdm
 #from multiprocessing import Pool
 from preprocessor import Preprocessor
-from vectorstore import Embedor
+from ragllm import RagLlm
 from typing import Optional
 from utils import vprint
 
@@ -25,7 +26,7 @@ def show_config(config: dict,section: Optional[str]=None) -> None:
             print(f"section {section} not in config")
 
 
-def download(config: dict, start_id: int, end_id: Optional[int] = None, verbose=False) -> None:
+def download(config: dict, start_id: int, end_id: Optional[int] = None) -> None:
     """
     Downloads the pdfs from the website and saves them to the configures File Storage
     Parameters:
@@ -62,31 +63,47 @@ def preprocess(config: dict, start_id: int, end_id: Optional[int] = None) -> Non
              pp.process_pdf(idx)
 
 def update_storage(config: dict, requests: int) -> None:
+    """
+    Looks up the id of the last downloaded/preprocessed document;
+    downloads and preprocesses the next n indexes
+    params:
+    - requests: number of indexes to request
+    """
     pp = Preprocessor(config)
-    filelist = pp.fs.get_file_list()
-    last_id = basename(sorted(filelist)[:1])
+    filelist = pp.fs.get_txt_files()
+    last_id = int(os.path.splitext(os.path.basename(sorted(filelist)[-1]))[0])
     start_id = last_id + 1
     end_id = start_id + requests
     for idx in tqdm(range(start_id, end_id + 1), desc="Processing documents", unit="docs"):
          pp.process_pdf(idx)
               
 
-def embed(config: dict, start_id: int, end_id: Optional[int] = None) -> None:
+def embed(config: dict, start_id: Optional[int] = None, end_id: Optional[int] = None) -> None:
+    """
+    Embed given Range of documents
+    When start_id and end_id are not specified embeds all documents in Storage
+    """
     vprint('embed got called', config)
-    emb = Embedor(config)
+    rag_llm = RagLlm(config=config)
+    emb = rag_llm.fw
     emb.embed(start_id, end_id)
 
 
-def update(config: dict, start_id: int, end_id: Optional[int] = None) -> None:
+def update(config: dict, start_id: Optional[int] = None, end_id: Optional[int] = None) -> None:
+    """
+    Update Vectorstore for given range of ids
+    when no range is given determing the list of already processed documents and embed aöö documents in
+    filestorage that ar not already processed
+    """
     vprint('update got called', config)
     emb = Embedor(config)
     emb.update_faiss_index(start_id, end_id)
 
 arg_template = {
-    "dest": "operands",
+    "dest": "params",
     "type": int,
-    "nargs": '+',
-    "metavar": "OPERAND",
+    "nargs": '*',
+    "metavar": "PARAMS",
     "help": "a numeric value",
 }
 
@@ -121,6 +138,10 @@ def main():
     preprocess_parser.add_argument(**arg_template)
     preprocess_parser.set_defaults(func=preprocess)
 
+    update_storage_parser = subparsers.add_parser('update_storage', help='update storage with next n new documents')
+    update_storage_parser.add_argument(**arg_template)
+    update_storage_parser.set_defaults(func=update_storage)
+
     embed_parser = subparsers.add_parser('embed', help='embed a range of textfiles')
     embed_parser.add_argument(**arg_template)
     embed_parser.set_defaults(func=embed)
@@ -138,12 +159,12 @@ def main():
     #use utils.py function vprint to print only if verbose is set
     if args.verbose:
          config['verbose'] = 1 #This allows to set verbosity levels later
-    args.func(config, *args.operands)
+    #args.func(config, *args.operands)
 
-    # if 'operands' in args and args.operands:
-    #     args.func(config, *args.operands)
-    # else:
-    #     args.func(config=config)
+    if 'operands' in args and args.params:
+        args.func(config, *args.params)
+    else:
+        args.func(config=config)
 
 
 if __name__ == "__main__":

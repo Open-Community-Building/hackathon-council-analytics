@@ -84,7 +84,7 @@ class Preprocessor:
         params: idx: the index of the PDF to get
         returns: the PDF content
         """
-        pdf_content = self.fs.get_from_storage(f"{idx}.pdf")
+        pdf_content = self.fs.read_from_storage(f"{idx}.pdf")
         if not pdf_content:
             vprint(f"PDF {idx} not found in storage, downloading from source.", self.config)
             pdf_content = self.download_pdf(idx)
