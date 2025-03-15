@@ -18,19 +18,21 @@ class RagLlm:
         self.config = config
         _framework = config.get('model',{}).get('framework') or framework
         _fwm = import_module(f"frameworks.{_framework}")
-        self.fw = _fwm.Embedor(config=config)
+        self.emb = _fwm.Embedor(config=config)
+        self.query = _fwm.Query()
 
     def index(self, start_idx: Optional[int] = None, end_idx: Optional[int] = None) -> list:
         """
-        Wrapper funcition
+        Wrapper function
         """
-        doc_count = self.fw.embed(start_idx=start_idx, end_idx=end_idx)
+        #TODO: rename index to something else
+        doc_count = self.emb.embed(start_idx=start_idx, end_idx=end_idx)
         return doc_count
 
     def query(self, user_query: str) -> str:
         """
-        Wrapper funcition
+        Wrapper function
         """
-        return self.fw.query_rag_llm(user_query)
+        return self.query.query_rag_llm(user_query)
 
 

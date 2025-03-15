@@ -46,9 +46,9 @@ class Embedor:
         self.pp = Preprocessor(config)
         self.fs = self.pp.fs
         self.verbose = config.get('verbose')
-        self.qdrant_url = 'Qdrant'
-        self.qdrant_api_key = 'https://fab0ca0d-b8e8-420c-b6ca-b59c5a990a16.us-east4-0.gcp.cloud.qdrant.io:6333'
-        self.hf_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwiZXhwIjoxNzQ2NDQwMTk3fQ.KU5q9RdAbwRicjjTGabCCEHrUgUp3F-b7cvxvsm-MYY'
+        self.qdrant_url = config['api']['qdrant_url']
+        self.qdrant_api_key = config['api']['qdrant_api_key']
+        self.hf_token = config['api']['hf_key']
         self.document_store = self._init_document_store()
 
     def _init_document_store(self) -> QdrantDocumentStore:
@@ -93,6 +93,11 @@ class Embedor:
         vprint(self.document_store.count_documents(), config)
         return self.document_store.count_documents()
 
+
+class Query:
+    """
+    query the Model
+    """
     def run_pipeline(self):
         pipeline_text_embedder = SentenceTransformersTextEmbedder(
             model=embedding_model_name,

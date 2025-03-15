@@ -69,6 +69,7 @@ def update_storage(config: dict, requests: int) -> None:
     params:
     - requests: number of indexes to request
     """
+    #Todo: check date of last document downloaded and add request per days diff
     pp = Preprocessor(config)
     filelist = pp.fs.get_txt_files()
     last_id = int(os.path.splitext(os.path.basename(sorted(filelist)[-1]))[0])
@@ -161,7 +162,7 @@ def main():
          config['verbose'] = 1 #This allows to set verbosity levels later
     #args.func(config, *args.operands)
 
-    if 'operands' in args and args.params:
+    if 'params' in args and args.params:
         args.func(config, *args.params)
     else:
         args.func(config=config)

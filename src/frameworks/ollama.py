@@ -17,6 +17,7 @@ class Embedor:
         """
         documents = self.fs.get_documents(start_idx, end_idx)
 
+class Query:
 
     def query_rag_llm(self, user_query: str) -> str:
         """
