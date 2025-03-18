@@ -19,7 +19,7 @@ class RagLlm:
         _framework = config.get('model',{}).get('framework') or framework
         _fwm = import_module(f"frameworks.{_framework}")
         self.emb = _fwm.Embedor(config=config)
-        self.query = _fwm.Query()
+        self.query = _fwm.Query(config=config)
 
     def index(self, start_idx: Optional[int] = None, end_idx: Optional[int] = None) -> list:
         """

@@ -1,13 +1,15 @@
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
-from haystack.components.embedders import SentenceTransformersDocumentEmbedder
+from haystack.components.embedders import SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder
 from haystack import Pipeline
 from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import HuggingFaceAPIGenerator
 from haystack.document_stores.types import DuplicatePolicy
 from haystack.utils import Secret
+from haystack import Document
 from preprocessor import Preprocessor
 from typing import Optional
+from utils import vprint
 
 """
 refactored from https://github.com/medulka/LLMs/blob/main/RAG_haystack_hanka_mistral.ipynb
@@ -54,7 +56,7 @@ class Embedor:
     def _init_document_store(self) -> QdrantDocumentStore:
         return QdrantDocumentStore(
             url=self.qdrant_url,
-            api_key=Secret.from_token(self.hf_token),
+            api_key=Secret.from_token(self.qdrant_api_key),
             index="Document",
             recreate_index=True,
             return_embedding=True,
@@ -83,14 +85,19 @@ class Embedor:
         params:
         - docucuments
         """
+        haystack_documents = []
+        for doc in documents:
+            haystack_documents.append(Document(content = doc['text'],
+                                               meta = {'name': doc['filename']}))
+            #TODO: insert document name in meta
         document_embedder = SentenceTransformersDocumentEmbedder(
             model=embedding_model_name,
             token=Secret.from_token(self.hf_token),
         )
         document_embedder.warm_up()
-        document_with_embeddings = document_embedder.run(documents)
+        document_with_embeddings = document_embedder.run(haystack_documents)
         self.document_store.write_documents(document_with_embeddings.get("documents"), policy=DuplicatePolicy.OVERWRITE)
-        vprint(self.document_store.count_documents(), config)
+        vprint(self.document_store.count_documents(), self.config)
         return self.document_store.count_documents()
 
 
@@ -98,18 +105,35 @@ class Query:
     """
     query the Model
     """
-    def run_pipeline(self):
+
+    def __init__(self, config: dict) -> None:
+        self.config = config
+        self.prompt_template = config.get('api',{}).get('prompt_template') or prompt_template
+        self.hf_token = config['api']['hf_key']
+        self.document_store = QdrantDocumentStore(
+            url=config['api']['qdrant_url'],
+            api_key=Secret.from_token(config['api']['qdrant_api_key']),
+            index="Document",
+            recreate_index=True,
+            return_embedding=True,
+            wait_result_from_api=True,
+            use_sparse_embeddings=True,
+            embedding_dim=384,
+        )
+        self.rag_pipeline = self.build_pipeline()
+
+    def build_pipeline(self):
         pipeline_text_embedder = SentenceTransformersTextEmbedder(
             model=embedding_model_name,
             token=Secret.from_token(self.hf_token),
         )
         pipeline_retriever = QdrantEmbeddingRetriever(document_store=self.document_store)
 
-        pipeline_prompt_builder = PromptBuilder(template=prompt_template)
+        pipeline_prompt_builder = PromptBuilder(template=self.prompt_template)
 
         pipeline_generator = HuggingFaceAPIGenerator(api_type="serverless_inference_api",
                                                      api_params={"model": llm_model_name},
-                                                     token=Secret.from_token(HF_TOKEN),
+                                                     token=Secret.from_token(self.hf_token),
                                                      generation_kwargs={"max_new_tokens": 2000}
                                                      )
 
@@ -123,6 +147,7 @@ class Query:
         rag_pipeline.connect('text_embedder.embedding', 'retriever.query_embedding')
         rag_pipeline.connect('retriever.documents', 'prompt_builder.documents')
         rag_pipeline.connect('prompt_builder', 'generator')
+        return rag_pipeline
 
     def query_rag_llm(self, user_query: str) -> str:
         """
@@ -130,7 +155,7 @@ class Query:
         params:
         - user_query
         """
-        ans = rag_pipeline.run(
+        ans = self.rag_pipeline.run(
             {"text_embedder": {"text": user_query}}
         )
         return ans['generator']['replies'][0].strip()

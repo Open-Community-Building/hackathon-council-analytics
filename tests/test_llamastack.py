@@ -20,7 +20,7 @@ def test_initialize_embedding_model(my_config):
 
 def test_init_faissindex(my_config):
     emb = Embedor(my_config)
-    vector_store = emb.initFAISSIndex()
+    vector_store = emb.init_vector_store()
     assert type(vector_store).__name__ == 'FaissVectorStore'
 
 

@@ -60,7 +60,9 @@ class Embedor:
         self.embedding_model = self.initialize_embedding_model()
 
     def report_status(self):
-        print(f"Vectors in FAISS index: {self.vector_store._faiss_index.ntotal}")
+        faiss_index = self.load_existing_index()
+        vector_store =  self.init_vector_store(faiss_index=faiss_index)
+        print(f"Vectors in FAISS index: {vector_store._faiss_index.ntotal}")
         # print(f"Documents in Vector Store Index: {len(index.ref_doc_info)}")
 
     def initialize_embedding_model(self):
@@ -138,7 +140,8 @@ class Embedor:
             # is embed
             index.storage_context.persist(persist_dir=self.index_dir)  # save the data
         vprint(f"Total vectors in FAISS index: {vector_store._faiss_index.ntotal}", self.config)
-        vprint(f"Total documents in metadata: {len(document_metadata)}", self.config)
+        if document_metadata:
+            vprint(f"Total documents in metadata: {len(document_metadata)}", self.config)
         return index
 
     def build_llama_documents(self,documents: list) -> list:
