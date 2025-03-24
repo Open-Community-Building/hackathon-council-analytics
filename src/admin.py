@@ -3,6 +3,7 @@ import argparse
 import os
 import tomllib
 import pprint
+import json
 from rainbow_tqdm import tqdm
 #from tqdm import tqdm
 #from multiprocessing import Pool
@@ -18,10 +19,10 @@ global_parser = argparse.ArgumentParser()
 
 def show_config(config: dict,section: Optional[str]=None) -> None:
     if section is None:
-        pprint.pprint(config)
+        print(json.dumps(config))
     else:
         if section in config:
-            pprint.pprint(config[section])
+            print(json.dumps(config[section]))
         else:
             print(f"section {section} not in config")
 
@@ -86,7 +87,7 @@ def embed(config: dict, start_id: Optional[int] = None, end_id: Optional[int] = 
     """
     vprint('embed got called', config)
     rag_llm = RagLlm(config=config)
-    emb = rag_llm.fw
+    emb = rag_llm.emb
     emb.embed(start_id, end_id)
 
 
@@ -99,6 +100,17 @@ def update(config: dict, start_id: Optional[int] = None, end_id: Optional[int] =
     vprint('update got called', config)
     emb = Embedor(config)
     emb.update_faiss_index(start_id, end_id)
+
+def retriever(config: dict, user_query: str):
+    """
+    run retriever pipeline for givenb query
+    return documents in json format
+    """
+    vprint('retriever got called', config)
+    rag_llm = RagLlm(config=config)
+    result = rag_llm.query.run_retriever_pipeline(user_query)
+    print(result)
+
 
 arg_template = {
     "dest": "params",
@@ -127,9 +139,15 @@ def main():
     global_parser.add_argument('--config', '-c', type=str, default=None, help='path to configfile')
     global_parser.add_argument('--verbose', '-v', action='store_true', help='be verbose')
 
-    show_config_parser = subparsers.add_parser('show-config', usage='use', help='show config variables')
-    show_config_parser.add_argument(dest='operands', nargs='*', help='show config variables', type=str, default=None)
+    show_config_parser = subparsers.add_parser('show-config', usage='admin show-config <filesection>', help='return json formated config variables')
+    show_config_parser.add_argument(dest='params', nargs='*', help='limit result to section <str>', type=str, default=None)
     show_config_parser.set_defaults(func=show_config)
+
+    retriever_parser = subparsers.add_parser('retriever', usage='admin retriever <query>',
+                                               help='return retrieved documents in json format')
+    retriever_parser.add_argument(dest='params', nargs='*', help='query <str>', type=str,
+                                    default=None)
+    retriever_parser.set_defaults(func=retriever)
 
     download_parser = subparsers.add_parser('download', help='download <start_id> <end_id>')
     download_parser.add_argument(**arg_template)
@@ -160,7 +178,6 @@ def main():
     #use utils.py function vprint to print only if verbose is set
     if args.verbose:
          config['verbose'] = 1 #This allows to set verbosity levels later
-    #args.func(config, *args.operands)
 
     if 'params' in args and args.params:
         args.func(config, *args.params)

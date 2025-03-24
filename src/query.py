@@ -17,9 +17,9 @@ from transformers import AutoTokenizer, BitsAndBytesConfig
 import tomllib
 
 #Define some defaults
-ll_name    = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+llm_model_name    = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 #TODO: refactor this to embedding_model_name
-model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 model_dir  = "model"
 index_dir  = "CouncilEmbeddings"
 system_prompt = """Du bist ein intelligentes System, das deutsche Dokumente durchsucht und auf Basis der enthaltenen Informationen präzise Antworten auf gestellte Fragen gibt. Wenn du eine Antwort formulierst, gib die Antwort in klaren und präzisen Sätzen an und nenne dabei mindestens eine oder mehrere relevante Quellen im Format: (Quelle: Dokumentname, Abschnitt/Seite, Filename des TXT)."""
@@ -40,14 +40,14 @@ class RAG_LLM:
             raise Exception("API Key is requirerd in config")
         #is this correct for all models, or do we need to elaborate for local models
             
-        self.llm_name = config.get('model',{}).get('llm_name') or llm_name
-        self.model_name = config.get('model',{}).get('model_name') or model_name
+        self.llm_model_name = config.get('model',{}).get('llm_model_name') or llm_model_name
+        self.embedding_model_name = config.get('model',{}).get('embedding_model_name') or embedding_model_name
         self.model_dir = config.get('model',{}).get('model_dir') or model_dir
-        self.index_dir = config.get('source',{}).get('folderEmbeddings') or index_dir
+        self.index_dir = config.get('embedding', {}).get('index_dir') or index_dir
         self.system_prompt = config.get('query',{}).get('system_prompt') or system_prompt
         self.huggingface_login(self.token)
 
-        print(f"Model name: {self.llm_name}")
+        print(f"Model name: {self.llm_model_name}")
 
         self.embed_model = self._init_embedding_model()
         tokenizer, self.llm_model = self._init_llm_model()
@@ -68,7 +68,7 @@ class RAG_LLM:
 
 
     def _init_llm_model(self):
-        tokenizer = AutoTokenizer.from_pretrained(self.llm_name, token=self.token)
+        tokenizer = AutoTokenizer.from_pretrained(self.llm_model_name, token=self.token)
         stopping_ids = [
             tokenizer.eos_token_id,
             tokenizer.convert_tokens_to_ids("<|eot_id|>"),
@@ -82,7 +82,7 @@ class RAG_LLM:
         model = HuggingFaceLLM(
             context_window=4096,
             max_new_tokens=1024,
-            model_name=self.llm_name,
+            model_name=self.llm_model_name,
             model_kwargs={
                 "token": self.token,
                 # "torch_dtype": torch.bfloat16,  # comment this line and uncomment below to use 4bit
@@ -97,7 +97,7 @@ class RAG_LLM:
             },
             system_prompt=self.system_prompt,
             query_wrapper_prompt=query_wrapper_prompt,
-            tokenizer_name=self.llm_name,
+            tokenizer_name=self.llm_model_name,
             tokenizer_kwargs={
                 "token": self.token,
                 "cache_dir": self.model_dir,
@@ -109,8 +109,8 @@ class RAG_LLM:
 
 
     def _init_embedding_model(self):
-        embedding_model = HuggingFaceEmbedding(model_name=self.embed_name)
-        print(f"Embedding model {self.embed_name} initialized.")
+        embedding_model = HuggingFaceEmbedding(model_name=self.embedding_model_name)
+        print(f"Embedding model {self.embedding_model_name} initialized.")
         return embedding_model
 
 

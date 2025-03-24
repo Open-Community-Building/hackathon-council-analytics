@@ -41,19 +41,25 @@ Question: {{ query }}
 
 Answer:
 """
+
+
 class Embedor:
+
+    #TODO: Floating Window
 
     def __init__(self, config: dict) -> None:
         self.config = config
         self.pp = Preprocessor(config)
         self.fs = self.pp.fs
-        self.verbose = config.get('verbose')
         self.qdrant_url = config['api']['qdrant_url']
         self.qdrant_api_key = config['api']['qdrant_api_key']
         self.hf_token = config['api']['hf_key']
-        self.document_store = self._init_document_store()
+        self.document_store_path = config.get('embedding',{}).get('qdrant',{}).get('index_dir')
+        #self.document_store = self.build_local_document_store()
+        self.document_store = self.build_server_document_store()
+        self.embedding_model_name = config.get('embedding', {}).get('qdrant', {}).get('embedding_model_name')
 
-    def _init_document_store(self) -> QdrantDocumentStore:
+    def build_server_document_store(self) -> QdrantDocumentStore:
         return QdrantDocumentStore(
             url=self.qdrant_url,
             api_key=Secret.from_token(self.qdrant_api_key),
@@ -61,6 +67,16 @@ class Embedor:
             recreate_index=True,
             return_embedding=True,
             wait_result_from_api=True,
+            use_sparse_embeddings=True,
+            embedding_dim=384,
+        )
+
+    def build_local_document_store(self):
+        return QdrantDocumentStore(
+            path=self.document_store_path,
+            index="Document",
+            recreate_index=True,
+            return_embedding=True,
             use_sparse_embeddings=True,
             embedding_dim=384,
         )
@@ -87,18 +103,18 @@ class Embedor:
         """
         haystack_documents = []
         for doc in documents:
-            haystack_documents.append(Document(content = doc['text'],
-                                               meta = {'name': doc['filename']}))
-            #TODO: insert document name in meta
+            haystack_documents.append(Document(content=doc['text'],
+                                               meta={'name': doc['filename']}))
         document_embedder = SentenceTransformersDocumentEmbedder(
-            model=embedding_model_name,
+            model=self.embedding_model_name,
             token=Secret.from_token(self.hf_token),
         )
+        document_store = self.document_store
         document_embedder.warm_up()
         document_with_embeddings = document_embedder.run(haystack_documents)
-        self.document_store.write_documents(document_with_embeddings.get("documents"), policy=DuplicatePolicy.OVERWRITE)
-        vprint(self.document_store.count_documents(), self.config)
-        return self.document_store.count_documents()
+        document_store.write_documents(document_with_embeddings.get("documents"), policy=DuplicatePolicy.OVERWRITE)
+        vprint(document_store.count_documents(), self.config)
+        return document_store.count_documents()
 
 
 class Query:
@@ -108,46 +124,78 @@ class Query:
 
     def __init__(self, config: dict) -> None:
         self.config = config
-        self.prompt_template = config.get('api',{}).get('prompt_template') or prompt_template
+        self.prompt_template = config.get('model',{}).get('haystack',{}).get('prompt_template') or prompt_template
         self.hf_token = config['api']['hf_key']
-        self.document_store = QdrantDocumentStore(
-            url=config['api']['qdrant_url'],
-            api_key=Secret.from_token(config['api']['qdrant_api_key']),
+        self.qdrant_url = config['api']['qdrant_url']
+        self.qdrant_api_key = config['api']['qdrant_api_key']
+        self.llm_model_name = config.get('model',{}).get('haystack',{}).get('llm_model_name') or llm_model_name
+        self.document_store_path = config.get('embedding', {}).get('qdrant', {}).get('index_dir')
+        self.document_store = self.get_local_document_store()
+        self.embedding_model_name = config.get('embedding', {}).get('qdrant', {}).get('embedding_model_name')
+        self.rag_pipeline = self.build_pipeline()
+
+    def get_local_document_store(self):
+        return QdrantDocumentStore(
+            path=self.document_store_path,
             index="Document",
-            recreate_index=True,
+            recreate_index=False,
+            return_embedding=True,
+            use_sparse_embeddings=True,
+            embedding_dim=384,
+        )
+
+    def get_server_document_store(self):
+        return QdrantDocumentStore(
+            url=self.qdrant_url,
+            api_key=Secret.from_token(self.qdrant_api_key),
+            index="Document",
+            recreate_index=False,
             return_embedding=True,
             wait_result_from_api=True,
             use_sparse_embeddings=True,
             embedding_dim=384,
         )
-        self.rag_pipeline = self.build_pipeline()
 
-    def build_pipeline(self):
-        pipeline_text_embedder = SentenceTransformersTextEmbedder(
-            model=embedding_model_name,
+    def init_retriever(self):
+        return QdrantEmbeddingRetriever(document_store=self.document_store, top_k=3)
+
+    def init_text_embedder(self):
+        return SentenceTransformersTextEmbedder(
+            model=self.embedding_model_name,
             token=Secret.from_token(self.hf_token),
         )
-        pipeline_retriever = QdrantEmbeddingRetriever(document_store=self.document_store)
 
-        pipeline_prompt_builder = PromptBuilder(template=self.prompt_template)
+    def init_generator(self):
+        return HuggingFaceAPIGenerator(
+            api_type="serverless_inference_api",
+            api_params={"model": self.llm_model_name},
+            token=Secret.from_token(self.hf_token),
+            generation_kwargs={"max_new_tokens": 2000}
+        )
 
-        pipeline_generator = HuggingFaceAPIGenerator(api_type="serverless_inference_api",
-                                                     api_params={"model": llm_model_name},
-                                                     token=Secret.from_token(self.hf_token),
-                                                     generation_kwargs={"max_new_tokens": 2000}
-                                                     )
+    def init_prompt_builder(self):
+        return PromptBuilder(template=self.prompt_template)
 
+    def build_pipeline(self):
         rag_pipeline = Pipeline()
 
-        rag_pipeline.add_component('text_embedder', pipeline_text_embedder)
-        rag_pipeline.add_component('retriever', pipeline_retriever)
-        rag_pipeline.add_component('prompt_builder', pipeline_prompt_builder)
-        rag_pipeline.add_component('generator', pipeline_generator)
+        rag_pipeline.add_component('text_embedder', self.init_text_embedder())
+        rag_pipeline.add_component('retriever', self.init_retriever())
+        rag_pipeline.add_component('prompt_builder', self.init_prompt_builder())
+        rag_pipeline.add_component('generator', self.init_generator())
 
         rag_pipeline.connect('text_embedder.embedding', 'retriever.query_embedding')
         rag_pipeline.connect('retriever.documents', 'prompt_builder.documents')
         rag_pipeline.connect('prompt_builder', 'generator')
         return rag_pipeline
+
+    def run_retriever_pipeline(self, query: str):
+        retriever_pipeline = Pipeline()
+        retriever_pipeline.add_component("text_embedder", self.init_text_embedder())
+        retriever_pipeline.add_component("retriever", self.init_retriever())
+        retriever_pipeline.connect("text_embedder.embedding", "retriever.query_embedding")
+        result = retriever_pipeline.run({"text_embedder": {"text": query}})
+        return result['retriever']['documents']
 
     def query_rag_llm(self, user_query: str) -> str:
         """
