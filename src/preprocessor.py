@@ -42,7 +42,7 @@ class Preprocessor:
     A class to represent a Preprocessor.
     """
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, secrets: dict) -> None:
         """
         Constructs all the necessary attributes for the Preprocessor object.
         params: config: the configuration dict
@@ -50,9 +50,9 @@ class Preprocessor:
         """
         self.config     = config
         self.source_url = config.get('source',{}).get('url') or source_url
-        _filestorage = config.get('preprocessor',{}).get('filestorage') or filestorage
+        _filestorage = config.get('documents',{}).get('storage') or filestorage
         fsm = import_module(f"storage.{_filestorage}")
-        self.fs         = fsm.FileStorage(config=config)
+        self.fs         = fsm.FileStorage(config=config, secrets=secrets)
 
     def show_config(self) -> str:
         """

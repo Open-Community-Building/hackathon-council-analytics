@@ -19,9 +19,9 @@ class FileStorage:
     This class contains methods for storing and retrieving files from the file system
     """
 
-    def __init__(self,config):
+    def __init__(self,config: dict,secrets: dict) -> None:
         try:
-            self.path = config['filestorage']['path']
+            self.path = config['documents']['filestorage']['path']
         except KeyError:
             raise Exception("A path configuration is required")
         self.config = config

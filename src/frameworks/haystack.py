@@ -47,13 +47,13 @@ class Embedor:
 
     #TODO: Floating Window
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, secrets: dict) -> None:
         self.config = config
-        self.pp = Preprocessor(config)
+        self.pp = Preprocessor(config,secrets)
         self.fs = self.pp.fs
-        self.qdrant_url = config['api']['qdrant_url']
-        self.qdrant_api_key = config['api']['qdrant_api_key']
-        self.hf_token = config['api']['hf_key']
+        self.qdrant_url = secrets['api']['qdrant_url']
+        self.qdrant_api_key = secrets['api']['qdrant_api_key']
+        self.hf_token = secrets['api']['hf_key']
         self.document_store_path = config.get('embedding',{}).get('qdrant',{}).get('index_dir')
         #self.document_store = self.build_local_document_store()
         self.document_store = self.build_server_document_store()
@@ -122,12 +122,12 @@ class Query:
     query the Model
     """
 
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, secrets: dict) -> None:
         self.config = config
         self.prompt_template = config.get('model',{}).get('haystack',{}).get('prompt_template') or prompt_template
-        self.hf_token = config['api']['hf_key']
-        self.qdrant_url = config['api']['qdrant_url']
-        self.qdrant_api_key = config['api']['qdrant_api_key']
+        self.hf_token = secrets['api']['hf_key']
+        self.qdrant_url = secrets['api']['qdrant_url']
+        self.qdrant_api_key = secrets['api']['qdrant_api_key']
         self.llm_model_name = config.get('model',{}).get('haystack',{}).get('llm_model_name') or llm_model_name
         self.document_store_path = config.get('embedding', {}).get('qdrant', {}).get('index_dir')
         self.document_store = self.get_local_document_store()
@@ -189,12 +189,12 @@ class Query:
         rag_pipeline.connect('prompt_builder', 'generator')
         return rag_pipeline
 
-    def run_retriever_pipeline(self, query: str):
+    def retrieve_docs(self, user_query: str):
         retriever_pipeline = Pipeline()
         retriever_pipeline.add_component("text_embedder", self.init_text_embedder())
         retriever_pipeline.add_component("retriever", self.init_retriever())
         retriever_pipeline.connect("text_embedder.embedding", "retriever.query_embedding")
-        result = retriever_pipeline.run({"text_embedder": {"text": query}})
+        result = retriever_pipeline.run({"text_embedder": {"text": user_query}})
         return result['retriever']['documents']
 
     def query_rag_llm(self, user_query: str) -> str:

@@ -19,15 +19,15 @@ class FileStorage:
     """
     Class to do fileoperations on a nextcloud instance
     """
-    def __init__(self,config: dict) -> None:
+    def __init__(self,config: dict, secrets: dict) -> None:
         """
         Initialize Nextcloud client
         :param config: config dict from config file
         """
-        self.nextcloud_folder = config['nextcloud']['folder']
-        self.nextcloud_user = config['nextcloud']['user']
-        self.nextcloud_password = config['nextcloud']['password']
-        self.nextcloud_url = os.path.join(config['nextcloud']['url'], self.nextcloud_user)
+        self.nextcloud_folder = config['documents']['nextcloud']['folder']
+        self.nextcloud_user = secrets['documents']['nextcloud']['user']
+        self.nextcloud_password = secrets['documents']['nextcloud']['password']
+        self.nextcloud_url = os.path.join(secrets['documents']['nextcloud']['url'], self.nextcloud_user)
 
 def get_from_storage(self, filename: str) -> str:
     """

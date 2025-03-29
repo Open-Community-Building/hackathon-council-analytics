@@ -4,6 +4,9 @@ FROM python:3.12-slim
 RUN apt-get update
 RUN apt-get install -y build-essential
 
+# config Verzeichnis
+mkdir /config
+
 # Arbeitsverzeichnis im Container setzen
 WORKDIR /app
 
@@ -13,7 +16,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Den gesamten Code ins Arbeitsverzeichnis kopieren
-COPY . .
+COPY src .
 
 # Port für Streamlit freigeben
 EXPOSE 8501

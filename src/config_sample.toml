@@ -1,16 +1,84 @@
-# https://realpython.com/python-toml/
-[preprocessor]
-filestorage = "nextcloud"
-fileformat = "txt"
-[nextcloud]
+[documentstorage]
+filestorage = "filesystem"
+
+[documentstorage.nextcloud]
+# also see secrets
 folder = "CouncilDocuments"
-user = "TeamAgenda"
-password = "TeamAgenda@2024"
-url = "https://nc-1578619932403564675.nextcloud-ionos.com/remote.php/dav/files/"
+
+[documentstorage.filestorage]
+path = '/media/ncdata/__groupfolders/4/CouncilDocuments'
+
+[preprocessor]
+fileformat = "txt"
+
 [source]
 url = "https://www.gemeinderat.heidelberg.de/getfile.asp"
-folderPDF = "CouncilDocuments"
-folderTXT = "CouncilTexts"
-[model]
-model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
+[embedding]
+# Defaults only used when no framework specific vars given
+index_dir = '/media/ncdata/__groupfolders/4/CouncilEmbeddings'
+embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+embedding_dim = 384
+
+
+[embedding.faiss]
+index_dir = '/media/ncdata/__groupfolders/4/faiss/CouncilEmbeddings'
+embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+embedding_dim = 384
+
+[embedding.qdrant]
+index_dir ='/media/ncdata/__groupfolders/4/qdrant/CouncilEmbeddings'
+embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+embedding_dim = 384
+
+
+[model]
+#framework = "llamastack"
+framework = "haystack"
+
+[model.llamastack]
+llm_model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+model_dir = "/media/ncdata/__groupfolders/4/meta-llama/Model"
+
+[model.haystack]
+llm_model_name = "mistralai/Mistral-7B-Instruct-v0.3"
+# llm_model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
+# llm_model_name = "utter-project/EuroLLM-1.7B-Instruct"
+# llm_model_name = "utter-project/EuroLLM-9B-Instruct"
+# llm_model_name = "openGPT-X/Teuken-7B-instruct-research-v0.4"
+# llm_model_name = "Aleph-Alpha/Pharia-1-LLM-7B-control-aligned-hf"
+# llm_model_name = "BSC-LT/salamandra-7b-instruct"
+model_dir = "/media/ncdata/__groupfolders/4/mistralai/Model"
+prompt_template = """
+You are the council of the town Heidelberg in Germany.
+Do the following steps:
+
+First, respond to the Question.
+Find the Answer in the Documents stored in the document_store and return it.
+Please provide your Answer in German.
+
+Next, return the document where you find the best Answer.  Return only one document.
+
+Documents:
+{% for doc in documents %}
+    Document {{ loop.index }}:
+    Document name: {{ doc.meta['name'] }}
+    {{ doc.content }}
+{% endfor %}
+
+Question: {{ query }}
+
+Answer:
+"""
+
+
+[streamlit]
+title = "Council Agenda Analytics Chatbot"
+header = "Ask anything!"
+user_input = "Enter your question:"
+get_response = "Get Response"
+chbt_response = "### Response from the Chatbot:"
+chbt_history = "### Chat History:"
+history_input  = "**You**"
+history_output = "**Chatbot**"
+error_text = "Please enter a question!"

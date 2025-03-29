@@ -42,6 +42,7 @@ index_dir = "/media/CouncilEmbeddings"
 llm_model_name    = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 #TODO: refactor this to embedding_model_name
 embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+embedding_dim = 384
 model_dir  = "model"
 system_prompt = """Du bist ein intelligentes System, das deutsche Dokumente durchsucht und auf Basis der enthaltenen Informationen präzise Antworten auf gestellte Fragen gibt. Wenn du eine Antwort formulierst, gib die Antwort in klaren und präzisen Sätzen an und nenne dabei mindestens eine oder mehrere relevante Quellen im Format: (Quelle: Dokumentname, Abschnitt/Seite, Filename des TXT)."""
 
@@ -61,8 +62,15 @@ class Helper:
         """
         self.config = config
         self.llm_model_name = config.get('model', {}).get('llamastack',{}).get('llm_model_name') or llm_model_name
-        self.embedding_model_name = config.get('embedding', {}).get('embedding_model_name') or embedding_model_name
-        self.index_dir = config.get('embedding', {}).get('index_dir') or index_dir
+        if config.get('embedding', {}).get('faiss'):
+            #ToDo: catch key errors here
+            self.embedding_model_name = config['embedding']['faiss']['embedding_model_name']
+            self.embedding_dim = config['embedding']['faiss']['embedding_dim']
+        else:
+            self.embedding_model_name = config.get('embedding', {}).get('embedding_model_name') or embedding_model_name
+            self.embedding_dim = config.get('embedding', {}).get('embedding_dim') or embedding_dim
+        self.index_dir = config.get('embedding', {}).get('faiss').get('index_dir') or index_dir
+        self.faiss_index_path = os.path.join(self.index_dir, "faiss_index.idx")
 
     def initialize_embedding_model(self):
         """
@@ -73,87 +81,60 @@ class Helper:
             vprint(f"Embedding model '{embedding_model.model_name}' initialized.", self.config)
         return embedding_model
 
+    def init_faiss_index(self) -> faiss.IndexFlatL2:
+        faiss_index = faiss.IndexFlatL2(self.embedding_dim)
+        return faiss_index
+
     def get_faiss_index(self) -> faiss.IndexFlatL2:
         """
         get the existing faiss index from index_dir and return if exits
         else create one
         """
-        faiss_index_path = os.path.join(self.index_dir, "faiss_index.idx")
-        if os.path.exists(faiss_index_path):
-            faiss_index = faiss.read_index(faiss_index_path)
-            vprint(f"Loaded FAISS index with {faiss_index.ntotal} vectors.", self.config)
-        else:
-            embedding_model = self.initialize_embedding_model()
-            test_embedding = embedding_model.get_text_embedding("test")
-            embedding_dim = len(test_embedding)  # 384
-            faiss_index = faiss.IndexFlatL2(embedding_dim)
-            faiss.write_index(faiss_index, faiss_index_path)
-            vprint("Created a new FAISS index.", self.config)
+        faiss_index = faiss.read_index(self.faiss_index_path)
+        vprint(f"Loaded FAISS index with {faiss_index.ntotal} vectors.", self.config)
         return faiss_index
+
+    def init_vector_store(self) -> FaissVectorStore:
+        faiss_index = self.init_faiss_index()
+        faiss_store = FaissVectorStore(faiss_index=faiss_index)
+        return faiss_store
+
 
     def get_vector_store(self) -> FaissVectorStore:
         """
         get an existing vector_store
-        else create one
         """
-        vector_store_path = os.path.join(self.index_dir, "default__vector_store.json")
-        if not os.path.exists(vector_store_path):
-            faiss_index = self.get_faiss_index()
-            faiss_store = FaissVectorStore(faiss_index=faiss_index)
-            faiss_store.persist(vector_store_path)
-        else:
-            faiss_store = FaissVectorStore.from_persist_dir(self.index_dir)
+        faiss_store = FaissVectorStore.from_persist_dir(self.index_dir)
         return faiss_store
+
+    def init_storage_context(self):
+        faiss_store = self.init_vector_store()
+        storage_context = StorageContext.from_defaults(vector_store=faiss_store)
+        return storage_context
 
 
     def get_storage_context(self):
-        storage_context_path = os.path.join(self.index_dir, "docstore.json")
-        if not os.path.exists(storage_context_path):
-            faiss_store = self.get_vector_store()
-            storage_context = StorageContext.from_defaults(vector_store=faiss_store)
-            storage_context.persist(self.index_dir)
-        else:
-            faiss_store = FaissVectorStore.from_persist_dir(self.index_dir)
-            storage_context = StorageContext.from_defaults(vector_store=faiss_store, persist_dir=self.index_dir)
+        faiss_store = self.get_vector_store()
+        storage_context = StorageContext.from_defaults(vector_store=faiss_store, persist_dir=self.index_dir)
         return storage_context
 
-    def get_vector_store_indices(self):
-        storage_context = self.get_storage_context()
-        structs = storage_context.index_store.index_structs()
 
-        return structs
-
-
-    def get_vector_store_index(self):
-        storage_context = self.get_storage_context()
-        if storage_context.docstore.docs:
-            vector_store_index = load_index_from_storage(storage_context, index_id=storage_context.index_store.index_structs()[-1].index_id)
-            if vector_store_index:
-                vprint(f"Number of nodes in index: {len(vector_store_index.ref_doc_info)}", self.config)
-        else:
-            vector_store_index = None
-        return vector_store_index
-
-    def report_status(self):
-        vector_store =  self.get_vector_store()
-        index = self.get_vector_store_index()
-        print(f"Vectors in FAISS index: {vector_store._faiss_index.ntotal}")
-        print(f"Documents in Vector Store Index: {len(index.ref_doc_info)}")
 
 class Embedor:
     """
     class Emebedor embedes textfiles in vector store
     """
-    def __init__(self, config: dict) -> None:
+    def __init__(self, config: dict, secrets: dict) -> None:
         """
         Constructs all the necessary attributes for the Embedor object.
         params: config: the configuration dict
         """
         self.config = config
         self.helper = Helper(config)
-        self.pp = Preprocessor(config)
+        self.pp = Preprocessor(config=config, secrets=secrets)
         self.fs = self.pp.fs
         self.index_dir = self.helper.index_dir
+        self.metadata_path = os.path.join(self.index_dir, "document_metadata.pkl")
 
 
 
@@ -189,7 +170,7 @@ class Embedor:
         update metadata
         save.
         """
-        storage_context = self.helper.get_storage_context()
+        storage_context = self.helper.init_storage_context()
         # Configure text splitter for chunking
         Settings.text_splitter = SentenceSplitter(chunk_size=1024, chunk_overlap=20)
 
@@ -229,9 +210,8 @@ class Embedor:
 
     def get_document_metadata(self):
         # Load document metadata if exists
-        metadata_path = os.path.join(self.index_dir, "document_metadata.pkl")
-        if os.path.exists(metadata_path):
-            with open(metadata_path, "rb") as f:
+        if os.path.exists(self.metadata_path ):
+            with open(self.metadata_path , "rb") as f:
                 document_metadata = pickle.load(f)
             vprint(f"Loaded metadata for {len(document_metadata)} documents.", self.config)
         else:
@@ -242,11 +222,10 @@ class Embedor:
 
     def save_index_and_metadata(self, faiss_index, document_metadata):
         """Save the FAISS index and document metadata."""
-        faiss.write_index(faiss_index, os.path.join(self.index_dir, "faiss_index.idx"))
-        metadata_path = os.path.join(self.index_dir, "document_metadata.pkl")
-        with open(metadata_path, "wb") as f:
+        faiss.write_index(faiss_index, self.faiss_index_path)
+        with open(self.metadata_path , "wb") as f:
             pickle.dump(document_metadata, f)
-        print(f"Saved FAISS index and metadata for {len(document_metadata)} documents.")
+        vprint(f"Saved FAISS index and metadata for {len(document_metadata)} documents.",self.config)
 
 class Query:
     """
@@ -254,11 +233,12 @@ class Query:
 
     """
 
-    def __init__(self, config):
+    def __init__(self, config: dict, secrets: dict):
         try:
-            self.token = config['api']['hf_key']
+            self.token = secrets['api']['hf_key']
         except KeyError:
-            raise Exception("API Key is required in config")
+            raise Exception("API Key is required in secrets")
+        self.config = config
         self.helper = Helper(config)
         self.index_dir = self.helper.index_dir
         self.embedding_model_name = self.helper.embedding_model_name
@@ -266,13 +246,7 @@ class Query:
         self.llm_model_name = config.get('model', {}).get('llamastack',{}).get('llm_model_name') or llm_model_name
         self.model_dir = config.get('model', {}).get('llamastack',{}).get('model_dir') or model_dir
         self.system_prompt = config.get('query', {}).get('system_prompt') or system_prompt
-        self.query_engine = self._configure_query_engine()
-
-    def huggingface_login(self, token):
-        if not token:
-            raise ValueError("Please set your Hugging Face token in the HUGGINGFACE_TOKEN environment variable.")
-        login(token=token)
-        print("Logged in successfully!")
+        self.query_engine = None
 
     def _init_llm_model(self):
         tokenizer = AutoTokenizer.from_pretrained(self.llm_model_name, token=self.token)
@@ -298,7 +272,7 @@ class Query:
             },
             device_map="cuda",
             generate_kwargs={
-                "do_sample": True, 
+                "do_sample": True,
                 "temperature": 0.3,
                 "top_p": 0.9,
                 },
@@ -311,17 +285,42 @@ class Query:
             },
             stopping_ids=stopping_ids,
         )
-        #TODO: tokenizer is not used in consecutive code
-        return tokenizer, model
-                
-    def _configure_query_engine(self) -> RetrieverQueryEngine:
-        self.huggingface_login(self.token)
+        return model
+
+
+    def get_vector_store_indices(self):
+        storage_context = self.helper.get_storage_context()
+        structs = storage_context.index_store.index_structs()
+        return structs
+
+    def huggingface_login(self):
+        res = login(token=self.token)
+        #Todo: test res, not just assume login was successful
+        vprint("Logged in successfully to Huggingface!",self.config)
+        return res
+
+    def get_vector_store_index(self):
+        storage_context = self.helper.get_storage_context()
+        self.huggingface_login()
         embed_model = self.helper.initialize_embedding_model()
-        tokenizer, llm_model = self._init_llm_model()
+        llm_model = self._init_llm_model()
         Settings.llm = llm_model
         # Settings.tokenizer = tokenizer
         Settings.embed_model = embed_model
-        index = self.helper.get_vector_store_index()
+        vector_store_index = load_index_from_storage(storage_context=storage_context)
+        #index_id=storage_context.index_store.index_structs()[-1].index_id
+        if vector_store_index:
+            vprint(f"Number of nodes in index: {len(vector_store_index.ref_doc_info)}", self.config)
+        return vector_store_index
+
+    def report_status(self):
+        vector_store =  self.helper.get_vector_store()
+        index = self.get_vector_store_index()
+        print(f"Vectors in FAISS index: {vector_store._faiss_index.ntotal}")
+        print(f"Documents in Vector Store Index: {len(index.ref_doc_info)}")
+
+    def _configure_query_engine(self) -> RetrieverQueryEngine:
+        index = self.get_vector_store_index()
         retriever = VectorIndexRetriever(
             index=index,
             similarity_top_k=3,
@@ -334,7 +333,7 @@ class Query:
             response_synthesizer=response_synthesizer,
         )
         summary_prompt =  (
-            "Nachfolgend sind passensten Kontextinformationen.\n"
+            "Nachfolgend die passensten Kontextinformationen.\n"
             "---------------\n"
             "{context_str}\n"
             "---------------\n"
@@ -351,14 +350,17 @@ class Query:
 
     def query_rag_llm(self, user_query):
         # Function to interact with the query engine and return a response
+        if not self.query_engine:
+            self.query_engine = self._configure_query_engine()
         with torch.no_grad():
             response = self.query_engine.query(user_query)
         torch.cuda.empty_cache()
         return str(response)
 
-    def search_relevant_documents(self, user_query) -> list[str]:
+    def retrieve_docs(self, user_query) -> list[str]:
         """Retrieve relevant documents supporting the user query from the RAG query engine."""
-
+        if not self.query_engine:
+            self.query_engine = self._configure_query_engine()
         retrieved_nodes = self.query_engine.retriever.retrieve(user_query)
         retrieved_files = [node.metadata for node in retrieved_nodes]
         retrieved_texts = [node.text for node in retrieved_nodes]
