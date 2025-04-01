@@ -16,9 +16,9 @@ def test_module(filesytem_config):
     assert type(fsm).__name__ == 'module'
 
 
-def test_get_documents(my_config):
+def test_get_documents(my_config, my_secrets):
     my_config['verbose'] = True
-    fs = FileStorage(my_config)
+    fs = FileStorage(my_config, my_secrets)
     all_documents = fs.get_documents()
     assert type(all_documents) == list
     document = fs.get_documents(start_idx=368672)
@@ -31,50 +31,27 @@ def test_get_documents(my_config):
     exclude_filemanes = ['368073.txt']
     documents = fs.get_documents(filelist=filelist, exclude_filenames=exclude_filemanes)
     assert len(documents) == 2
-def test_class(filesytem_config):
-    config = filesytem_config
-    filestorage = config['preprocessor']['filestorage']
+
+def test_class(my_config, my_secrets):
+    filestorage = 'filesystem'
     fsm = import_module(f"src.storage.{filestorage}")
-    fs = fsm.FileStorage(config)
+    fs = fsm.FileStorage(config=my_config, secrets=my_secrets)
     assert type(fs).__name__ == 'FileStorage'
 
 
-def test_get_from_storage(filesytem_config):
-    config = filesytem_config
-    filestorage = config['preprocessor']['filestorage']
-    fsm = import_module(f"src.storage.{filestorage}")
-    fs = fsm.FileStorage(config)
-    result = fs.get_from_storage('testfile.txt')
-    assert result == 'Testresultat\n'
-
-
-def test_put_on_storage(filesytem_config):
-    config = filesytem_config
-    filestorage = config['preprocessor']['filestorage']
-    fsm = import_module(f"src.storage.{filestorage}")
-    fs = fsm.FileStorage(config)
-    fs.put_on_storage('testfile2.txt', 'Testresultat2')
-    result = fs.get_from_storage('testfile2.txt')
+def test_put_on_storage(my_config, my_secrets):
+    fs = FileStorage(config=my_config, secrets=my_secrets)
+    fs.put_on_storage('testfile.txt', b'Testresultat2')
+    result = fs.read_from_storage('testfile.txt')
     assert result == 'Testresultat2'
 
 
-def test_load_txt_files(my_config):
-    config = my_config
-    filestorage = config['preprocessor']['filestorage']
-    fsm = import_module(f"src.storage.{filestorage}")
-    fs = fsm.FileStorage(config)
-    files = fs.load_txt_files()
+def test_load_txt_files(my_config, my_secrets):
+    fs = FileStorage(config=my_config, secrets=my_secrets)
+    files = fs.get_txt_files()
     pprint.pp(files)
     assert type(files) == list
 
-
-@pytest.fixture
-def filesytem_config(my_sample_config):
-    config = my_sample_config
-    folder = os.path.abspath('./test_data')
-    config['filestorage'] = {'path': folder}
-    config['preprocessor'] = {'filestorage': 'filesystem'}
-    return config
 
 
 

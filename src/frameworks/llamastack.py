@@ -131,7 +131,7 @@ class Embedor:
         """
         self.config = config
         self.helper = Helper(config)
-        self.pp = Preprocessor(config=config, secrets=secrets)
+        self.pp = Preprocessor(config=config, secrets=secretsq)
         self.fs = self.pp.fs
         self.index_dir = self.helper.index_dir
         self.metadata_path = os.path.join(self.index_dir, "document_metadata.pkl")

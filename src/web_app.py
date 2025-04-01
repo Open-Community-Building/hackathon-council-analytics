@@ -1,3 +1,4 @@
+#streamlit run src/web_app.py ~/.config/hca/ --server.port=8686  --server.address=0.0.0.0
 import streamlit as st
 import sys
 import os
