@@ -1,8 +1,9 @@
 import torch
 import json
-import tomllib
-import deepeval
-from deepeval import evaluate
+import os
+import pandas as pd
+from time import sleep
+
 from deepeval.metrics import FaithfulnessMetric
 from deepeval.test_case import LLMTestCase
 from deepeval.models.base_model import DeepEvalBaseLLM
@@ -15,7 +16,12 @@ from lmformatenforcer.integrations.transformers import (
     build_transformers_prefix_allowed_tokens_fn,
 )
 
-from query import RAG_LLM, huggingface_login
+from ragllm import RagLlm
+from query import read_config, query, retrieve
+
+
+DEFAULT_CONFIGFILE = os.path.expanduser(os.path.join('~','.config','hca','config_test.toml'))
+DEFAULT_SECRETSFILE = os.path.expanduser(os.path.join('~','.config','hca','secrets.toml'))
 
 
 class EvalHuggingFaceLLM(DeepEvalBaseLLM):
@@ -76,30 +82,54 @@ class EvalHuggingFaceLLM(DeepEvalBaseLLM):
     def get_model_name(self):
         return "Llama-3.1 8B"
 
-rag_llm = RAG_LLM()
-eval_llm = EvalHuggingFaceLLM()
 
-questions = ["Wie viele Unterlagen des Finanzausschusses sind vorhanden und welche sind das?"]
-scores = []
+def load_ground_truth(csv_path):
+    """Load ground truth CSV file containing questions and related answers and the document to find it in"""
+    df_truth = pd.read_csv(csv_path, usecols=range(4))
 
-metric_faithful = FaithfulnessMetric(model=eval_llm)
+    documents = df_truth["document"].tolist()
+    names = df_truth["name"].tolist()
+    questions = df_truth["question"].tolist()
+    answers = df_truth["answer"].tolist()
 
-for question in questions:
-    retrieved_texts = rag_llm.search_relevant_documents(user_query=question)[1]
-    generated_answer = rag_llm.query_rag_llm(user_query=question)
+    return documents, names, questions, answers
 
-    print(f"Question: {question}")
-    print(f"Retrieved text: {retrieved_texts}")
-    print(f"Answer: {generated_answer}")
 
-    test_case = LLMTestCase(
-        input=question,
-        actual_output=generated_answer,
-        retrieval_context=retrieved_texts
-    )
+def main():
 
-    metric_faithful.measure(test_case)
-    print(metric_faithful.score)
-    print(metric_faithful.reason)
+    secrets = read_config(DEFAULT_SECRETSFILE)
+    config = read_config(DEFAULT_CONFIGFILE)
 
-    scores.append((metric_faithful.score, question))
+    csv_path = "/media/ncdata/__groupfolders/4/TestDocuments/questions.csv"
+    documents, names, questions, answers = load_ground_truth(csv_path)
+
+    scores = []
+
+    eval_llm = EvalHuggingFaceLLM()
+    metric_faithful = FaithfulnessMetric(model=eval_llm)
+
+    for question in questions:
+        rag_llm = RagLlm(config=config, secrets=secrets)
+        retrieved_texts = rag_llm.retrieve_docs(question)
+        generated_answer = rag_llm.run_query(question) 
+
+        print(f"Question: {question}")
+        print(f"Retrieved text: {retrieved_texts}")
+        print(f"Answer: {generated_answer}")
+
+        # test_case = LLMTestCase(
+        #     input=question,
+        #     actual_output=generated_answer,
+        #     retrieval_context=retrieved_texts
+        # )
+
+        # metric_faithful.measure(test_case)
+        # print(metric_faithful.score)
+        # print(metric_faithful.reason)
+
+        # scores.append((metric_faithful.score, question))
+
+
+if __name__ == "__main__":
+
+    main()

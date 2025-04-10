@@ -15,17 +15,19 @@ DEFAULT_CONFIGFILE = os.path.expanduser(os.path.join('~','.config','hca','config
 DEFAULT_SECRETSFILE = os.path.expanduser(os.path.join('~','.config','hca','secrets.toml'))
 FRAMEWORKS = ['llamastack','haystack']
 
-def retrieve(config: str, secrets: str, user_query: str) -> None:
+def retrieve(config: str, secrets: str, user_query: str) -> list:
     vprint('retriever got called', config)
     rag_llm = RagLlm(config=config, secrets=secrets)
     result = rag_llm.retrieve_docs(user_query)
     print(result)
+    return result
     
-def query(config: str, secrets: str, user_query: str) -> None:
+def query(config: str, secrets: str, user_query: str) -> str:
     vprint('query got called', config)                               
     rag_llm = RagLlm(config=config, secrets=secrets)                     
     result = rag_llm.run_query(user_query)                                
     print(result)
+    return result
 
 def read_config(configfile: str) -> dict:
     try:
