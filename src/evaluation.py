@@ -7,9 +7,10 @@ from time import sleep
 from deepeval.metrics import FaithfulnessMetric
 from deepeval.test_case import LLMTestCase
 from deepeval.models.base_model import DeepEvalBaseLLM
+from deepeval.models import OllamaModel, OllamaEmbeddingModel
 import transformers
-from transformers import AutoModelForCausalLM, AutoTokenizer
-from transformers import BitsAndBytesConfig
+# from transformers import AutoModelForCausalLM, AutoTokenizer
+# from transformers import BitsAndBytesConfig
 from pydantic import BaseModel
 from lmformatenforcer import JsonSchemaParser
 from lmformatenforcer.integrations.transformers import (
@@ -26,24 +27,28 @@ DEFAULT_SECRETSFILE = os.path.expanduser(os.path.join('~','.config','hca','secre
 
 class EvalHuggingFaceLLM(DeepEvalBaseLLM):
     def __init__(self):
-        quantization_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True,
+        # quantization_config = BitsAndBytesConfig(
+        #     load_in_4bit=True,
+        #     bnb_4bit_compute_dtype=torch.float16,
+        #     bnb_4bit_quant_type="nf4",
+        #     bnb_4bit_use_double_quant=True,
+        # )
+
+        # model_4bit = AutoModelForCausalLM.from_pretrained(
+        #     "meta-llama/Meta-Llama-3-8B-Instruct",
+        #     device_map="auto",
+        #     quantization_config=quantization_config,
+        # )
+        # tokenizer = AutoTokenizer.from_pretrained(
+        #     "meta-llama/Meta-Llama-3-8B-Instruct"
+        # )
+        model = OllamaModel(
+            model="mistral",
+            base_url="http://localhost:11434",
         )
 
-        model_4bit = AutoModelForCausalLM.from_pretrained(
-            "meta-llama/Meta-Llama-3-8B-Instruct",
-            device_map="auto",
-            quantization_config=quantization_config,
-        )
-        tokenizer = AutoTokenizer.from_pretrained(
-            "meta-llama/Meta-Llama-3-8B-Instruct"
-        )
-
-        self.model = model_4bit
-        self.tokenizer = tokenizer
+        self.model = model
+        # self.tokenizer = tokenizer
 
     def load_model(self):
         return self.model
