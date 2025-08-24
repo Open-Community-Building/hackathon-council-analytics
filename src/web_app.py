@@ -7,14 +7,11 @@ import tomllib
 import toml
 
 # Define Defaults
-DOCKER_CONFIGDIR = "/config"
-DOCKER_CONFIGDIR = "/root/.config/hca/"
+configdir = os.path.expanduser('~') + "/.config/hca/"
 
-if len(sys.argv) >= 2:
-    configdir = os.path.expanduser('~')
-else:
-    configdir = DOCKER_CONFIGDIR
-
+print(f"Using config directory: {configdir}")
+print(f"Systemargumente: {sys.argv}")
+# FIXME: Start with correct config path from command line instead of Docker path
 
 config = None
 st_title = "Council Agenda Analytics Chatbot"
@@ -67,11 +64,11 @@ if page == "Konfiguration":
             "llm": config["model"]["llm_name"]
         }
     
-    available_filestorages = [key for key, value in config.get("documentstorage", {}).items() if isinstance(value, dict)]
+    available_filestorages = [key for key, value in config.get("documents", {}).items() if isinstance(value, dict)]
     selected_filestorage = st.selectbox(
         "Wähle den Filestorage-Typ",
         available_filestorages,
-        index=available_filestorages.index(config["documentstorage"]["filestorage"])
+        index=available_filestorages.index(config["documents"]["filestorage"])
     )
 
     available_embeddings = [key for key, value in config.get("embedding", {}).items() if isinstance(value, dict)]
