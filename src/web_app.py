@@ -6,14 +6,12 @@ from ragllm import RagLlm
 import tomllib
 import toml
 
-# Define Defaults
-DOCKER_CONFIGDIR = "/config"
 
-if len(sys.argv) >= 2:
-    configdir = sys.argv[1]
-else:
-    configdir = DOCKER_CONFIGDIR
+configdir = os.path.expanduser('~') + "/.config/hca/"
 
+print(f"Using config directory: {configdir}")
+print(f"Systemargumente: {sys.argv}")
+# FIXME: Start with correct config path from command line instead of Docker path
 
 config = None
 st_title = "Council Agenda Analytics Chatbot"
