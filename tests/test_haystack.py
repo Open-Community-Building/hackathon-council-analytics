@@ -2,7 +2,6 @@ import sys
 
 sys.path.append("../src")
 
-from ragllm import RagLlm
 from frameworks.haystack import Embedor
 from frameworks.haystack import Query
 
@@ -14,7 +13,7 @@ from frameworks.haystack import Query
 def test_embedor_class(my_config, my_secrets):
     emb = Embedor(config=my_config, secrets=my_secrets)
     assert type(emb).__name__ == 'Embedor'
-    assert emb.document_store_path == '/media/ncdata/__groupfolders/4/qdrant/CouncilEmbeddings'
+    assert emb.document_store_path == '/media/ncdata/__groupfolders/4/TestEmbeddings/qdrant'
 
 
 def test_build_local_document_store(my_config, my_secrets):
@@ -37,7 +36,7 @@ def test_init_document_store(my_config, my_secrets):
     assert type(dstore.count_documents()) == int
 
 
-def test_embed_and_index_documents(my_config, my_secrets):
+def test_embed_documents(my_config, my_secrets):
     emb = Embedor(config=my_config, secrets=my_secrets)
     doc_count = emb.embed()
     print(doc_count)
@@ -77,7 +76,7 @@ def test_query_rag_llm(my_config, my_secrets):
 def test_run_retriever_pipeline(my_config, my_secrets):
     query = Query(config=my_config, secrets=my_secrets)
     user_query = "Wie viele Unterlagen des Finanzausschusses sind vorhanden und welche sind das?"
-    retriever_documents = query.run_retriever_pipeline(user_query)
+    retriever_documents = query.retrieve_docs(user_query)
     print(retriever_documents)
     assert len(retriever_documents) > 0
 

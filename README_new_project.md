@@ -5,7 +5,7 @@ Here, a cloud solution is presented, but later in this README, the slightly diff
 
 ## Project overview
 
-In order to start from scratch with new set of documents, the database has to created and linked to the LLM afterwards: 
+In order to start from scratch with new set of documents, the database has to created and linked to the LLM afterwards:
 
 1. Upload data to nextcloud
 2. Convert PDFs to TXT files 
@@ -28,11 +28,12 @@ Once, all documents are named according to the convention *<number>.pdf*, the pr
 For the following steps, adjustments to the configuration file are necessary. A sample file is provided: *src/config_sample.toml*. 
 All scripts load a config file by default from *~/.config/hca/config.toml*. An alternating path can be provided as command line argument. 
 To configure the preprocessing correctly, the ``path`` variable for *documentstorage.filestorage* in *config.toml* has to be adjust according to the newly created folder: 
+
 ``/media/ncdata/__groupfolders/3/<your/folder>``
 
-'''
+``
 python3 src/admin.py preprocess <start_idx> <end_idx>
-'''
+``
 where the start and end indices are within the interval of processed documents. 
 
 The resulting ``TXT``documents are stored in the same directory as the input files.
@@ -44,9 +45,9 @@ Adjust it to your given filestructure for correct behavior.
 
 For the embedding, the range of relevant documents has to be provided entering
 
-'''
+``
 python3 src/admin.py embed <start_idx> <end_idx>
-'''
+``
 
 This command will also directly store the index files.
 
@@ -55,9 +56,9 @@ This command will also directly store the index files.
 After creating the database, it can directly be executed starting streamlit. 
 The configuration has to be entered explicitly in order to find the created index. 
 
-'''
+``
 streamlit run src/web_app.py /root/.config/hca/
-'''
+``
 
 This will start a website on localhost:8501. 
 

@@ -26,6 +26,32 @@ Heidelberg City Council automatic document processing, analyzing and chatbot.
 ## About
 This project intends to automatically download hundreds of thousand of publicly available documents from Heidelberg City Council's website regularly and transform them by indexation and vectorization before finally run data analytics models against them using NLP and LLM. The purpose is to create a democratic trusted system whereby all stakeholders will be able to search, analyze and get answer to their questions quickly and transparently.
 
+## Quick Start
+
+A full version of the Chatbot including all required software components is available as docker image. 
+Only two components have to be added manually: 
+1. A vector database with publically available, embedded documents of Heidelberg City Council can be downloaded [from Nextcloud](https://nc.openheidelberg.de/s/WfoDMTiqqeT6eg2).
+2. Two personalized configuration files, namely ``config.toml`` and ``secrets.toml`` which are based on [``config_sample.toml``](https://github.com/Open-Community-Building/hackathon-council-analytics/blob/main/src/config_sample.toml) and [``secrets_sample.toml``](https://github.com/Open-Community-Building/hackathon-council-analytics/blob/main/src/secrets_sample.toml). The scripts search for it in directory `` /root/.config/hca/``. Otherwise, the external volumes of the service *hca* in ``docker-compose.yml`` have to be adjusted. 
+
+After linking the docker image to the configuration settings, the container can be build by first pulling the exsting image and second execute the docker compose: 
+
+```
+docker pull chrisbtt/council-analytics:latest
+```
+```
+docker compose --profile cpu up -d
+```
+Depending on the hardware, the profile ``cpu`` can be replaced by ``gpu`` executing **Ollama** on all available CUDA GPUs.
+
+The docker container will open up a port for the ChatBot: *https://localhost:8501*. 
+
+For code development, the docker image can also be build from source including new adjustments instead of pulling from Docker Hub: 
+```
+docker build . -t local/council-analytics
+```
+The filename has to be adjusted in ``docker-compose.yml`` at *service:hca:image*
+
+
 ## Development
 
 ### Prerequisites

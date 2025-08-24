@@ -21,7 +21,7 @@ class FileStorage:
 
     def __init__(self,config: dict,secrets: dict) -> None:
         try:
-            self.path = config['documentstorage']['filesystem']['path']
+            self.path = config['documents']['filestorage']['path']
         except KeyError:
             raise Exception("A path configuration is required")
         self.config = config
@@ -63,7 +63,7 @@ class FileStorage:
                 end_idx = start_idx
             filelist = []
             for idx in range(start_idx, end_idx + 1):
-                filename = f"{idx}.txt"
+                filename = f"{idx}.md"
                 filelist.append(filename)
         elif not filelist and not start_idx:
             filelist = self.get_txt_files()
@@ -84,12 +84,12 @@ class FileStorage:
         """
         files = []
         for filename in os.listdir(self.path):
-            if filename.endswith(".txt"):
+            if filename.endswith(".md"):
                 files.append(os.path.join(self.path, filename))
         return files
 
 
-    def put_on_storage(self,filename,content, content_type="binary") -> bool:
+    def put_on_storage(self, filename, content, content_type="binary") -> bool:
         """
         This method stores a file in the filesystem
         """
@@ -97,6 +97,6 @@ class FileStorage:
             write_type = 'wb'
         else:
             write_type = 'w'
-        with open(os.path.join(self.path,filename),write_type) as f:
+        with open(os.path.join(self.path,filename), write_type) as f:
             f.write(content)
         return True

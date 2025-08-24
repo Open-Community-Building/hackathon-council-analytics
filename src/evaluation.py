@@ -5,7 +5,8 @@ import pandas as pd
 from time import sleep
 
 from deepeval.metrics import FaithfulnessMetric
-from deepeval.test_case import LLMTestCase
+from deepeval.test_case.llm_test_case import LLMTestCase
+from deepeval.models.llms.ollama_model import OllamaModel
 from deepeval.models.base_model import DeepEvalBaseLLM
 from deepeval.models import OllamaModel, OllamaEmbeddingModel
 import transformers

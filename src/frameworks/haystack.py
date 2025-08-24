@@ -55,8 +55,8 @@ class Embedor:
         self.qdrant_api_key = secrets['api']['qdrant_api_key']
         self.hf_token = secrets['api']['hf_key']
         self.document_store_path = config.get('embedding',{}).get('qdrant',{}).get('index_dir')
-        #self.document_store = self.build_local_document_store()
-        self.document_store = self.build_server_document_store()
+        self.document_store = self.build_local_document_store()
+        #self.document_store = self.build_server_document_store()
         self.embedding_model_name = config.get('embedding', {}).get('qdrant', {}).get('embedding_model_name')
 
     def build_server_document_store(self) -> QdrantDocumentStore:
@@ -194,8 +194,12 @@ class Query:
         retriever_pipeline.add_component("text_embedder", self.init_text_embedder())
         retriever_pipeline.add_component("retriever", self.init_retriever())
         retriever_pipeline.connect("text_embedder.embedding", "retriever.query_embedding")
-        result = retriever_pipeline.run({"text_embedder": {"text": user_query}})
-        return result['retriever']['documents']
+        retriever_result = retriever_pipeline.run({"text_embedder": {"text": user_query}})
+        result = []
+        for document in retriever_result['retriever']['documents']:
+            result.append({'score': document.score, 'metadata': document.meta, 'content': document.content})
+        result_sorted = sorted(result, key=lambda x: x['score'], reverse=True)
+        return result_sorted
 
     def query_rag_llm(self, user_query: str) -> str:
         """

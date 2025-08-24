@@ -1,11 +1,11 @@
-[documentstorage]
-filestorage = "filesystem"
+[documents]
+storage = "filesystem"
 
-[documentstorage.nextcloud]
+[documents.nextcloud]
 # also see secrets
 folder = "CouncilDocuments"
 
-[documentstorage.filesystem]
+[documents.filestorage]
 path = '/media/ncdata/__groupfolders/4/CouncilDocuments'
 
 [preprocessor]
@@ -22,23 +22,27 @@ embedding_dim = 384
 
 
 [embedding.faiss]
-index_dir = '/media/ncdata/__groupfolders/4/faiss/CouncilEmbeddings'
+index_dir = '/media/ncdata/__groupfolders/4/TestEmbeddings/faiss'
 embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 embedding_dim = 384
 
 [embedding.qdrant]
-index_dir ='/media/ncdata/__groupfolders/4/qdrant/CouncilEmbeddings'
+index_dir ='/media/ncdata/__groupfolders/4/TestEmbeddings/qdrant'
 embedding_model_name = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 embedding_dim = 384
 
+[embedding.txtai]
+index_dir = '/media/ncdata/__groupfolders/4/TestEmbeddings/txtai'
+embedding_model_name = 'sentence-transformers/nli-mpnet-base-v2'
 
 [model]
-#framework = "llamastack"
-framework = "haystack"
+framework = "llamastack"
+#framework = "haystack"
+architecture = "ollama" # Currently no other options
 
 [model.llamastack]
-llm_model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-model_dir = "/media/ncdata/__groupfolders/4/meta-llama/Model"
+llm_model_name = "llama3.2"
+model_dir = "mxbai-embed-large"
 
 [model.haystack]
 llm_model_name = "mistralai/Mistral-7B-Instruct-v0.3"
@@ -71,6 +75,7 @@ Question: {{ query }}
 Answer:
 """
 
+
 [streamlit]
 title = "Council Agenda Analytics Chatbot"
 header = "Ask anything!"
@@ -81,8 +86,3 @@ chbt_history = "### Chat History:"
 history_input  = "**You**"
 history_output = "**Chatbot**"
 error_text = "Please enter a question!"
-
-[frameworks]
-filestorage = [ "nextcloud", "local",]
-embed = [ "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",]
-llm = [ "meta-llama/Meta-Llama-3.1-8B-Instruct",]

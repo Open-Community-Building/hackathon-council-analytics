@@ -135,8 +135,7 @@ def test_query_rag_llm(my_config, my_secrets):
 def test_search_relevant_documents(my_config, my_secrets):
     query = Query(my_config, my_secrets)
     question = "Wie viele Unterlagen des Finanzausschusses sind vorhanden und welche sind das?"
-    retrieved_files, retrieved_texts = query.search_relevant_documents(question)
-    assert type(retrieved_files) == list
-    assert len(retrieved_files) > 0
-    assert type (retrieved_texts) == list
-    assert len(retrieved_texts) > 0
+    result = query.retrieve_docs(question)
+    print(result)
+    assert type(result) == list
+    assert len(result) > 0

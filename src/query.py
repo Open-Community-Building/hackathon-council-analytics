@@ -13,7 +13,7 @@ from utils import vprint
 #Defaults
 DEFAULT_CONFIGFILE = os.path.expanduser(os.path.join('~','.config','hca','config.toml'))
 DEFAULT_SECRETSFILE = os.path.expanduser(os.path.join('~','.config','hca','secrets.toml'))
-FRAMEWORKS = ['llamastack','haystack']
+FRAMEWORKS = ['llamastack','haystack','txtai']
 
 def retrieve(config: str, secrets: str, user_query: str) -> list:
     vprint('retriever got called', config)
