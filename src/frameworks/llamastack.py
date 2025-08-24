@@ -2,7 +2,9 @@ import faiss
 import pickle
 import torch
 from llama_index.core import (VectorStoreIndex,
+                              KnowledgeGraphIndex,
                               StorageContext,
+                              ServiceContext,
                               PromptTemplate,
                               Document,
                               Settings,
@@ -17,6 +19,7 @@ from llama_index.llms.huggingface import HuggingFaceLLM
 from llama_index.llms.ollama import Ollama
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.graph_stores import SimpleGraphStore
 from preprocessor import Preprocessor
 from huggingface_hub import login
 from transformers import AutoTokenizer, BitsAndBytesConfig
@@ -209,6 +212,38 @@ class Embedor:
         vprint(f"Total vectors in FAISS index: {storage_context.vector_store._faiss_index.ntotal}", self.config)
         if document_metadata:
             vprint(f"Total documents in metadata: {len(document_metadata)}", self.config)
+
+        base_url = "http://hca-ollama-cpu:11434" if is_docker() else "http://localhost:11434"
+        embedding_model = OllamaEmbedding(
+            model_name="mxbai-embed-large",
+            base_url=base_url,
+            ollama_additional_kwargs={"prostatic": 0},
+        )
+
+                # llm_model = self._init_llm_model()
+        base_url = "http://hca-ollama-cpu:11434" if is_docker() else "http://localhost:11434"
+        llm_model = Ollama(
+            model="llama3.2",
+            base_url=base_url,
+            request_timeout=30.0)
+        Settings.llm = llm_model
+        Settings.embed_model = embedding_model
+        graph_store = SimpleGraphStore()
+        graph_storage = StorageContext.from_defaults(graph_store=graph_store)
+        graph_index = KnowledgeGraphIndex.from_documents(
+            llama_documents,
+            storage_context=graph_storage,
+            max_triplets_per_chunk=2,
+        )
+        graph_index.storage_context.persist(persist_dir=self.index_dir)
+
+        from pyvis.network import Network
+
+        g = graph_index.get_networkx_graph()
+        net = Network(notebook=True, cdn_resources="in_line", directed=True)
+        net.from_nx(g)
+        net.show("example.html")
+
         return index
 
 
@@ -319,7 +354,7 @@ class Query:
 
     def get_vector_store_index(self):
         storage_context = self.helper.get_storage_context()
-        self.huggingface_login()
+        # self.huggingface_login()
         embed_model = self.helper.initialize_embedding_model()
         # llm_model = self._init_llm_model()
         base_url = "http://hca-ollama-cpu:11434" if is_docker() else "http://localhost:11434"
@@ -327,8 +362,8 @@ class Query:
             model="llama3.2",
             base_url=base_url,
             request_timeout=600.0)
+        
         Settings.llm = llm_model
-        # Settings.tokenizer = tokenizer
         Settings.embed_model = embed_model
         vector_store_index = load_index_from_storage(storage_context=storage_context)
         #index_id=storage_context.index_store.index_structs()[-1].index_id
