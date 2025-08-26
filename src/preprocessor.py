@@ -59,12 +59,12 @@ class Preprocessor:
         params: config: the configuration dict
 
         """
-        self.config     = config
+        self.config = config
         self.source_url = config.get('source',{}).get('url') or source_url
         _filestorage = config.get('documents',{}).get('storage') or filestorage
         fsm = import_module(f"storage.{_filestorage}")
-        self.fs         = fsm.FileStorage(config=config, secrets=secrets)
-        
+        self.fs = fsm.FileStorage(config=config, secrets=secrets)
+
         try:
             self.path = config['documents']['filestorage']['path']
         except KeyError:
