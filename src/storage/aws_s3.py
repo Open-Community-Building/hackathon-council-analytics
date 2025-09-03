@@ -1,6 +1,7 @@
 import boto3
+import os
 from botocore.config import Config
-from typing import Optional
+from typing import Optional, List
 
 from utils import vprint
 
@@ -23,13 +24,14 @@ class FileStorage:
 				endpoint_url=secrets['documents']['aws']['s3_endpoint'],
 				aws_access_key_id=secrets['documents']['aws']['access_key'],
 				aws_secret_access_key=secrets['documents']['aws']['secret_key'],
+				region_name="garage",
 				config=Config(signature_version='s3v4')
 			)
 		except KeyError:
 			raise Exception("A bucket configuration is required with configuration 'documents;filestorage;bucket' and secrets 'aws;access_key' and 'aws;secret_key'")
 
 
-	def read_from_storage(self, filename: str) -> str:
+	def read_from_storage(self, filename: str) -> str | bytes | None:
 		"""
 		Retrieve a file's content from AWS S3
 		"""
@@ -49,11 +51,12 @@ class FileStorage:
 			return None
 		
 
-	def put_on_storage(self, filename: str, content: str, content_type="binary") -> bool:
+	def put_on_storage(self, filename: str, content: str, content_type="binary") -> str | None:
 		"""
 		Store a file's contentat filename in AWS S3
 		"""
 		try:
+			filename = filename if self.config['documents']['filestorage'].get('prefix') is None else os.path.join(self.config['documents']['filestorage']['prefix'], filename)
 			if content_type == "binary":
 				self.s3_client.put_object(
 					Bucket=self.bucket_name, 
@@ -69,40 +72,46 @@ class FileStorage:
 					ContentType='text/markdown'
 				)
 			vprint(f"Uploaded {filename} to S3 bucket {self.bucket_name}", self.config)
-			return True
+			return filename
 		except Exception as e:
 			vprint(f"Error uploading to S3: {e}", self.config)
-			return False
+			return None
 
 
-	def get_documents(self, 
-				    start_idx: Optional[int] = None, 
-				    end_idx: Optional[int] = None, 
-				    filelist: Optional[list] = None,
-                    exclude_filenames: Optional[list] = None) -> list:
+	def get_documents(self, max_files: Optional[int] = None, exclude_filenames: Optional[List[str]] = None) -> list:
 		"""
 		Get documents from S3 bucket.
-		If start_idx and end_idx are provided, fetches documents in that range.
-		If filelist is provided, fetches only those files.
+		Lists all files with the given prefix in the bucket and loads them.
+		Optionally limits the number of files loaded.
 		"""
+
 		documents = []
-		if start_idx is not None:
-			if end_idx is None:
-				end_idx = start_idx
-			for idx in range(start_idx, end_idx + 1):
-				filename = f"{idx}.md"
-				doc = self.read_from_storage(filename)
-				if doc:
-					documents.append({'text': doc, 'filename': filename, 'url': f'{self.config["source"]["url"]}?id={idx}&type=do'})
-		else:
-			if not filelist:
-				filelist = self.get_txt_files()
-			for filename in filelist:
+		prefix = self.config['documents']['filestorage']['prefix']
+
+		paginator = self.s3_client.get_paginator("list_objects_v2")
+		page_iterator = paginator.paginate(
+			Bucket=self.config['documents']['filestorage']['bucket'],
+			Prefix=prefix
+		)
+
+		count = 0
+		for page in page_iterator:
+			for obj in page.get("Contents", []):
+				filename = obj["Key"]
 				if exclude_filenames and filename in exclude_filenames:
 					continue
+
 				doc = self.read_from_storage(filename)
 				if doc:
-					documents.append({'text': doc, 'filename': filename, 'url': f'{self.config["source"]["url"]}?id={filename.replace(".md", "")}&type=do'})
+					documents.append({
+						'text': doc,
+						'filename': filename,
+						'url': f'{self.config["source"]["url"]}?id={filename.replace(".md", "")}&type=do'
+					})
+
+				count += 1
+				if max_files is not None and count >= max_files:
+					break
 
 		return documents
 	

@@ -11,6 +11,7 @@ from utils import vprint
 
 from docling.datamodel.base_models import InputFormat, DocumentStream
 from docling.document_converter import DocumentConverter, PdfFormatOption
+from tqdm import tqdm
 from docling.datamodel.pipeline_options import (
     AcceleratorDevice,
     AcceleratorOptions,
@@ -81,47 +82,45 @@ class Preprocessor:
             "User-Agent": "Preprocessor/1.0"
         })
 
-    def show_config(self) -> str:
+    def show_config(self) -> None:
         """
         Print the configuration of the Preprocessor object.
         """
         pprint.pp(self.config)
 
-    def download_pdf(self, idx: int) -> Optional[bytes]:
+    def download_pdf(self, max_limit: int | None = None, update: bool = False) -> int | None:
         """
         Download the PDF from the source.
         """
-        #TODO: save on FileStorage could be optional
+        # 1. Get list of available documents
+        documents = [os.path.join('../downloads', f) for f in os.listdir('../downloads') if f.endswith('.pdf')]
+        max_limit = max_limit if max_limit is not None else len(documents)
+        num_docs = 0
+        with tqdm(total=max_limit, desc="Downloading PDFs") as pbar:
+            while num_docs < max_limit:
+            # TODO: 2. Download documents up to max_limit
+                filepath = documents[num_docs]
+                pdf_content = self.request_pdf(filepath)
+                if pdf_content:
+                    filename = filepath.split('/')[-1]
+                    self.fs.put_on_storage(filename, pdf_content, content_type="binary")
+                num_docs += 1
+                pbar.update(1)
 
-        #breakpoint()
-        pdf_content = self.request_pdf(idx)
-        if pdf_content:
-            vprint(f"PDF {idx} downloaded from source.", self.config)
-            filename = f"{idx}.pdf"
-            self.fs.put_on_storage(filename,
-                               pdf_content,
-                               content_type="binary")
-            return pdf_content
-        else:
-            return None
-
-    def get_pdf(self, idx) -> str:
-        """
-        Try to get the PDF from storage, if not available download from source.
-        params: idx: the index of the PDF to get
-        returns: the PDF content
-        """
-        pdf_content = self.fs.read_from_storage(f"{idx}.pdf")
-        if not pdf_content:
-            vprint(f"PDF {idx} not found in storage, downloading from source.", self.config)
-            pdf_content = self.download_pdf(idx)
-        return pdf_content
+        return num_docs
 
 
-    def process_pdf(self, idx) -> bool:
+    def process_pdf(self, max_limit: Optional[int] = None) -> bool:
         """
-        Process the PDF by downloading from source, uploading to Storage, extracting text, and uploading the text file to Storage.
+        Process PDFs by downloading from source, uploading to Storage, 
+        extracting text, and uploading the text file to Storage.
+        Loads documents via get_documents().
         """
+
+        documents = self.fs.get_documents(max_files=max_limit)
+        if not documents:
+            vprint("Keine Dokumente gefunden.", self.config)
+            return False
 
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = True
@@ -132,61 +131,41 @@ class Preprocessor:
             num_threads=1, device=AcceleratorDevice.AUTO
         )
 
-        pdf_content = self.get_pdf(idx)
+        for doc in tqdm(documents, desc="Processing PDFs"):
+            filename = doc["filename"]
+            if not filename.endswith('.pdf'):
+                continue
+            text_key = filename.split('/')[-1].replace(".pdf", ".md")
 
-        if pdf_content is not None:
-            pdf_content = BytesIO(pdf_content)
-            source = DocumentStream(name=f"{idx}.pdf", stream=pdf_content)
-            doc_converter = DocumentConverter(
-                format_options={
-                    InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-                }
-            )
-            conv_result = doc_converter.convert(source)
-            text = conv_result.document.export_to_markdown()
-            text_filename = f"{idx}.md"  # Save the extracted text to a local file
-            self.fs.put_on_storage(text_filename, text, content_type="text")
-            vprint(f"Text extracted and saved as {text_filename}", self.config)
-            return True
-        else:
-            vprint(f"Skipping text extraction for {idx} ", self.config)
-            return False
+            pdf_content = doc["text"]
+            if pdf_content is not None:
+                pdf_content = BytesIO(pdf_content)
+                source = DocumentStream(name=text_key, stream=pdf_content)
+
+                doc_converter = DocumentConverter(
+                    format_options={
+                        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+                    }
+                )
+                conv_result = doc_converter.convert(source)
+                text = conv_result.document.export_to_markdown()
+
+                self.fs.put_on_storage(text_key, text, content_type="text")
+                vprint(f"Text extracted and saved as {text_key}", self.config)
+            else:
+                vprint(f"Skipping text extraction for {text_key}", self.config)
+
+        return True
 
 
-    def request_pdf(self, idx) -> bytes:
-        """
-        Request the PDF file from the municipal council website.
-        Returns the content of the file if it's a PDF, otherwise None.
-        """
-        url = f"{self.source_url}?id={idx}&type=do"
-
+    def request_pdf(self, filepath) -> bytes | None:
+        """Read PDF document from filepath"""
         try:
-            head_resp = self.session.head(url, timeout=5)
-        except requests.RequestException as e:
-            vprint(f"HEAD request for {idx} failed: {e}", self.config)
+            with open(filepath, "rb") as f:
+                return f.read()
+        except Exception as e:
+            vprint(f"Error reading {filepath}: {e}", self.config)
             return None
-
-        content_type = head_resp.headers.get('Content-Type', '')
-        if head_resp.status_code != 200:
-            vprint(f"HEAD for {idx} returned status {head_resp.status_code}", self.config)
-            return None
-        if not content_type.startswith('application/pdf'):
-            vprint(f"HEAD for {idx}: not a PDF (Content-Type: {content_type})", self.config)
-            return None
-
-        try:
-            get_resp = self.session.get(url, stream=True, timeout=10)
-        except requests.RequestException as e:
-            vprint(f"GET request for {idx} failed: {e}", self.config)
-            return None
-
-        if get_resp.status_code == 200:
-            vprint(f"PDF successfully downloaded for {idx}.", self.config)
-            return get_resp.content
-        else:
-            vprint(f"GET for {idx} returned status {get_resp.status_code}", self.config)
-            return None
-
 
     def extract_text(self, doc):
         text = ""

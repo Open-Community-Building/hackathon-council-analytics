@@ -91,6 +91,7 @@ class Embedor:
         - end_idx
         #ToDo: preprocessed documents, update    
         """
+        # TODO: change to max_limit
         documents = self.fs.get_documents(start_idx=start_idx,end_idx=end_idx)
         count = self.embed_and_index_documents(documents)
         return count

@@ -65,6 +65,7 @@ def test_get_storage_context(my_config):
 
 def test_build_llama_documents(my_config, my_secrets):
     emb = Embedor(config=my_config, secrets=my_secrets)
+    # TODO: change to max_limit
     documents = emb.fs.get_documents(start_idx=368035, end_idx=368052)
     llama_documents = emb.build_llama_documents(documents)
     assert type(llama_documents) == list

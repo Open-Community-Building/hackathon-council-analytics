@@ -16,6 +16,7 @@ def test_module(my_config, my_secrets):
 
 
 def test_get_documents(my_config, my_secrets):
+    # TODO: change to max_limit
     my_config['verbose'] = True
     fs = FileStorage(my_config, my_secrets)
     all_documents = fs.get_documents()

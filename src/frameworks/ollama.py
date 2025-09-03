@@ -15,6 +15,7 @@ class Embedor:
         """
         This function is called from the admin interface
         """
+        # TODO: change to max_limit
         documents = self.fs.get_documents(start_idx, end_idx)
 
 class Query:

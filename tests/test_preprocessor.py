@@ -38,5 +38,6 @@ def test_process_pdf(my_config, my_secrets):
     pp = Preprocessor(config=my_config, secrets=my_secrets)
     result = pp.process_pdf(367896)
     assert result
+    # FIXME: Update method from int to str
 
 

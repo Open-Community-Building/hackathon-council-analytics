@@ -29,44 +29,29 @@ def show_config(config: dict,secrets: dict, section: Optional[str]=None) -> None
             print(f"section {section} not in config")
 
 
-def download(config: dict, secrets: dict,start_id: int, end_id: Optional[int] = None) -> None:
+def download(config: dict, secrets: dict, max_limit: Optional[int] = None) -> None:
     """
     Downloads the pdfs from the website and saves them to the configures File Storage
     Parameters:
-        start_id (int): The start id of the pdfs to download
-        end_id (int): The end id of the pdfs to download
+        max_limit (int): The maximum number of pdfs to download
     """
-    vprint(f"download got called with {start_id} and {end_id}", config)
+    # BUG: cmd argument max_limit still required
+    vprint(f"Download got called", config)
     pp = Preprocessor(config=config, secrets=secrets)
-    if end_id is None:
-        pp.download_pdf(start_id)
-    else:
-        #args_list = [(i, False) for i in range(start_id, end_id)]
-        #with Pool(processes=1) as p:
-        #    results = list(tqdm(p.imap(pp.download_pdf, args_list), total=len(args_list)))
-        #print("Process completed.")
-        num_docs = 0
-        for idx in tqdm(range(start_id, end_id + 1), desc="Loading documents", unit="docs"):
-            pdf_content = pp.download_pdf(idx)
-            num_docs = num_docs + 1 if pdf_content is not None else num_docs
+    num_docs = pp.download_pdf(max_limit=max_limit, update=False)
 
-    vprint(f"Dowload finished with {num_docs} new documents downloaded", config)
-            
+    vprint(f"Download finished with {num_docs} new documents downloaded", config)
 
-def preprocess(config: dict, secrets: dict, start_id: int, end_id: Optional[int] = None) -> None:
+
+def preprocess(config: dict, secrets: dict, max_limit: Optional[int] = None) -> None:
     """
     Preprocesses the pdfs and saves them to the configured File Storage
     Parameters:
-        start_id (int): The start id of the pdfs to preprocess
-        end_id (int): The end id of the pdfs to preprocess 
+        max_limit (int): The maximum number of pdfs to download
     """
-    vprint(f"preprocess got called with {start_id} and {end_id}", config=config)
+    vprint(f"preprocess got called with {max_limit}", config=config)
     pp = Preprocessor(config=config, secrets=secrets)
-    if end_id is None:
-        pp.process_pdf(start_id)
-    else:
-        for idx in tqdm(range(start_id, end_id + 1), desc="Processing documents", unit="docs"):
-             pp.process_pdf(idx)
+    pp.process_pdf(max_limit=max_limit)
 
 
 def update_storage(config: dict, secrets: dict, requests: int) -> None:
@@ -76,14 +61,15 @@ def update_storage(config: dict, secrets: dict, requests: int) -> None:
     params:
     - requests: number of indexes to request
     """
-    #Todo: check date of last document downloaded and add request per days diff
+    # TODO: check date of last document downloaded and add request per days diff
     pp = Preprocessor(config=config, secrets=secrets)
     filelist = pp.fs.get_txt_files()
     last_id = int(os.path.splitext(os.path.basename(sorted(filelist)[-1]))[0])
     start_id = last_id + 1
     end_id = start_id + requests
     for idx in tqdm(range(start_id, end_id + 1), desc="Processing documents", unit="docs"):
-         pp.process_pdf(idx)
+        pp.process_pdf(idx)
+    # FIXME: Update method from int to str
               
 
 def embed(config: dict, secrets: dict, start_id: Optional[int] = None, end_id: Optional[int] = None) -> None:
@@ -164,9 +150,9 @@ def main():
     retriever_parser.set_defaults(func=retriever)
 
     download_parser = subparsers.add_parser('download',
-                                            description='downloads the requested documents from the source',
-                                            help='download <start_id> <end_id>')
-    download_parser.add_argument(help='first and last document id to download', **arg_template)
+                                            description='downloads all or optionally <max_limit> documents from the source',
+                                            help='download <max_limit>')
+    download_parser.add_argument(help='max number of documents to download', **arg_template)
     download_parser.set_defaults(func=download)
 
     preprocess_parser = subparsers.add_parser('preprocess', description='process downloaded pdf files to text',

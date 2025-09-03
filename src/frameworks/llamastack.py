@@ -153,6 +153,7 @@ class Embedor:
         """
         This function is called from the admin interface
         """
+        # TODO: change to max_limit
         documents = self.fs.get_documents(start_idx, end_idx)
         index = self.embed_and_index_documents(documents)
         return len(index.ref_doc_info)
@@ -165,6 +166,7 @@ class Embedor:
         # Load only new documents
         # self.load_txt_files_from_directory(directory, processed_filenames=document_metadata.keys())
         document_metadata = self.get_document_metadata()
+        # TODO: change to max_limit
         new_documents = self.fs.get_documents(start_idx, end_idx, exclude_filenames=document_metadata.keys())
         if new_documents:
             self.embed_and_index_documents(new_documents, document_metadata)
