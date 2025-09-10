@@ -18,6 +18,9 @@ from docling.datamodel.pipeline_options import (
     PdfPipelineOptions,
 )
 
+from storage.database import CouchDBLogger
+
+
 """
 This Module provides classes for preprocessing
 
@@ -67,20 +70,7 @@ class Preprocessor:
         fsm = import_module(f"storage.{_filestorage}")
         self.fs         = fsm.FileStorage(config=config, secrets=secrets)
 
-        # Setup a session with Keep-Alive and retry policy
-        self.session = requests.Session()
-        retries = Retry(
-            total=3,
-            backoff_factor=0.5,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET"]
-        )
-        adapter = HTTPAdapter(max_retries=retries)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-        self.session.headers.update({
-            "User-Agent": "Preprocessor/1.0"
-        })
+        self.db_logger = CouchDBLogger(config=config, secrets=secrets)
 
     def show_config(self) -> None:
         """
@@ -100,15 +90,19 @@ class Preprocessor:
             while num_docs < max_limit:
             # TODO: 2. Download documents up to max_limit
                 filepath = documents[num_docs]
+                filename = os.path.basename(filepath)
+                self.db_logger.log_status(filename, "downloading")
+
                 pdf_content = self.request_pdf(filepath)
                 if pdf_content:
-                    filename = filepath.split('/')[-1]
                     self.fs.put_on_storage(filename, pdf_content, content_type="binary")
+                    self.db_logger.log_status(filename, "stored", {"size": len(pdf_content)})
+                else:
+                    self.db_logger.log_status(filename, "failed")
                 num_docs += 1
                 pbar.update(1)
 
         return num_docs
-
 
     def process_pdf(self, max_limit: Optional[int] = None) -> bool:
         """
@@ -133,26 +127,36 @@ class Preprocessor:
 
         for doc in tqdm(documents, desc="Processing PDFs"):
             filename = doc["filename"]
-            if not filename.endswith('.pdf'):
+            if not filename.endswith(".pdf"):
                 continue
-            text_key = filename.split('/')[-1].replace(".pdf", ".md")
+            text_key = filename.split("/")[-1].replace(".pdf", ".md")
+            self.db_logger.log_status(filename, "processing_started")
 
             pdf_content = doc["text"]
             if pdf_content is not None:
-                pdf_content = BytesIO(pdf_content)
-                source = DocumentStream(name=text_key, stream=pdf_content)
+                try:
+                    pdf_content = BytesIO(pdf_content)
+                    source = DocumentStream(name=text_key, stream=pdf_content)
 
-                doc_converter = DocumentConverter(
-                    format_options={
-                        InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
-                    }
-                )
-                conv_result = doc_converter.convert(source)
-                text = conv_result.document.export_to_markdown()
+                    doc_converter = DocumentConverter(
+                        format_options={
+                            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+                        }
+                    )
+                    conv_result = doc_converter.convert(source)
+                    text = conv_result.document.export_to_markdown()
+                    self.db_logger.log_status(filename, "extracted", {"text_key": text_key})
 
-                self.fs.put_on_storage(text_key, text, content_type="text")
-                vprint(f"Text extracted and saved as {text_key}", self.config)
+                    self.fs.put_on_storage(text_key, text, content_type="text")
+                    self.db_logger.log_status(filename, "stored_text")
+
+                    vprint(f"Text extracted and saved as {text_key}", self.config)
+
+                except Exception as e:
+                    self.db_logger.log_status(filename, "failed", {"error": str(e)})
+                    vprint(f"Fehler bei der Verarbeitung von {filename}: {e}", self.config)
             else:
+                self.db_logger.log_status(filename, "failed", {"reason": "no_pdf_content"})
                 vprint(f"Skipping text extraction for {text_key}", self.config)
 
         return True
