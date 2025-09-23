@@ -30,7 +30,7 @@ This project intends to automatically download hundreds of thousand of publicly 
 
 A full version of the Chatbot including all required software components is available as docker image. 
 Only two components have to be added manually: 
-1. A vector database with publically available, embedded documents of Heidelberg City Council can be downloaded [from Nextcloud](https://nc.openheidelberg.de/s/WfoDMTiqqeT6eg2).
+1. A vector database will be available shortly. 
 2. Two personalized configuration files, namely ``config.toml`` and ``secrets.toml`` which are based on [``config_sample.toml``](https://github.com/Open-Community-Building/hackathon-council-analytics/blob/main/src/config_sample.toml) and [``secrets_sample.toml``](https://github.com/Open-Community-Building/hackathon-council-analytics/blob/main/src/secrets_sample.toml). The scripts search for it in directory `` /root/.config/hca/``. Otherwise, the external volumes of the service *hca* in ``docker-compose.yml`` have to be adjusted. 
 
 After linking the docker image to the configuration settings, the container can be build by first pulling the exsting image and second execute the docker compose: 
@@ -244,3 +244,4 @@ After this, changes will be merged.
 
 
 ## License
+
